@@ -68,4 +68,4 @@ npm run build    # genera el instalador en src-tauri/target/release/bundle/nsis
 2. Haz commit y crea la etiqueta: `git tag v0.3.0 && git push origin main v0.3.0`.
 3. GitHub Actions compila el instalador, lo firma y lo publica en Releases con `latest.json`. Las copias instaladas lo detectan en las siguientes horas (o con Buscar actualizaciones).
 
-Las actualizaciones se firman con la llave privada de `%USERPROFILE%.taurilienzo.key`, guardada como secreto del repositorio (`TAURI_SIGNING_PRIVATE_KEY` y `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`). **Respáldala:** sin ella no se pueden publicar actualizaciones que las copias instaladas acepten.
+Las actualizaciones se firman con la llave privada de `%USERPROFILE%\.tauri\lienzo.key`, guardada como secreto del repositorio (`TAURI_SIGNING_PRIVATE_KEY` y `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`). **Respáldala:** sin ella no se pueden publicar actualizaciones que las copias instaladas acepten.
