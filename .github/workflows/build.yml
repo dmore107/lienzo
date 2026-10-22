@@ -1,0 +1,27 @@
+name: Compilar
+
+# Revisa que todo compile en cada cambio a main o en un pull request.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: Revisar el código Rust
+        working-directory: src-tauri
+        run: cargo clippy --all-targets -- -D clippy::correctness
+      - name: Guardar Cargo.lock resuelto
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-lock
+          path: src-tauri/Cargo.lock

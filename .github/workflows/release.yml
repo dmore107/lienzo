@@ -1,0 +1,45 @@
+name: Publicar versión
+
+# Al subir una etiqueta vX.Y.Z se compila el instalador, se firma para el
+# actualizador y se publica en GitHub Releases junto con latest.json.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: La etiqueta coincide con la versión de tauri.conf.json
+        shell: pwsh
+        run: |
+          $v = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          if ("v$v" -ne "${{ github.ref_name }}") { throw "La etiqueta ${{ github.ref_name }} no coincide con la versión v$v de tauri.conf.json" }
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: Lienzo ${{ github.ref_name }}
+          releaseBody: Descarga el instalador `Lienzo_*_x64-setup.exe`. Si ya tienes Lienzo 0.2 o superior, se actualiza solo.
+          releaseDraft: false
+          prerelease: false
+          includeUpdaterJson: true
