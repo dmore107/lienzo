@@ -695,8 +695,7 @@ function openRecPop(anchor){
 function closeRecPop(){$('#recPop').classList.remove('open')}
 $('#recKind').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;recKind=b.dataset.k;try{localStorage.setItem('lienzo-rec-tipo',recKind)}catch(x){}paintKind()});
 async function startRec(){
-  const mic=$('#recMic').checked, system=$('#recSys').checked;
-  if(!mic&&!system){toast('Elige al menos una fuente de audio');return}
+  const mic=true, system=true; /* siempre tu micrófono y el audio del PC */
   $('#recGo').disabled=true;
   try{await invoke('rec_start',{kind:recKind,title:$('#recTitle').value,mic,system});closeRecPop();toast((KIND[recKind]||'Grabación')+': grabando')}
   catch(e){toast(''+e)}

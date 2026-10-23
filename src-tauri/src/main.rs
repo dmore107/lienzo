@@ -4,6 +4,7 @@
 
 mod db;
 mod rec;
+mod transcribe;
 mod updater;
 mod win;
 
@@ -534,6 +535,17 @@ fn copy_item(app: AppHandle, state: State<AppState>, id: String, paste: bool) ->
     Ok(())
 }
 
+/// Copia texto (p. ej. una transcripción) sin que Lienzo lo vuelva a capturar como copia nueva.
+#[tauri::command]
+fn copy_text(state: State<AppState>, text: String) -> Result<(), String> {
+    state.writing.store(true, Ordering::SeqCst);
+    state.last_hash.store(hash_bytes(text.as_bytes()), Ordering::SeqCst);
+    let res = arboard::Clipboard::new().and_then(|mut cb| cb.set_text(text)).map_err(|e| e.to_string());
+    state.skip_seq.store(win::seq(), Ordering::SeqCst);
+    state.writing.store(false, Ordering::SeqCst);
+    res
+}
+
 #[tauri::command]
 fn set_paused(app: AppHandle, value: bool) {
     set_paused_inner(&app, value);
@@ -630,8 +642,10 @@ fn main() {
                 hotkeys: Mutex::new(vec![]),
             });
             app.manage(rec::Recorder::default());
+            app.manage(transcribe::Transcriber::default());
             purge_old_trash(&app.state::<AppState>());
             rec::recover(&app.state::<AppState>());
+            transcribe::recover(&app.state::<AppState>());
 
             // Atajos globales: Win+V (si Windows lo deja libre) y Alt+V
             let mut ok = vec![];
@@ -708,6 +722,7 @@ fn main() {
 
             start_watcher(app.handle().clone());
             backfill_thumbs(app.handle().clone());
+            transcribe::start_worker(app.handle().clone());
             Ok(())
         })
         .on_window_event(|window, event| match event {
@@ -733,6 +748,7 @@ fn main() {
             delete_forever,
             empty_trash,
             copy_item,
+            copy_text,
             set_paused,
             set_keep_open,
             system_colors,
@@ -746,6 +762,14 @@ fn main() {
             rec::update_session,
             rec::delete_session,
             rec::open_session_folder,
+            transcribe::transcribe_setup,
+            transcribe::set_transcribe_prefs,
+            transcribe::download_model,
+            transcribe::cancel_download,
+            transcribe::delete_model,
+            transcribe::transcribe_session,
+            transcribe::cancel_transcription,
+            transcribe::get_transcript,
             updater::check_update,
             updater::install_update
         ])

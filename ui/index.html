@@ -33,8 +33,8 @@
       </div>
       <button class="sbtn solid" id="newNote"><span data-i="plus"></span>Nota</button>
       <button class="sbtn" id="openS"><span data-i="search"></span>Buscar<kbd>Ctrl K</kbd></button>
-      <button class="sbtn recb" data-rec title="Grabar una reunión o capacitación (Alt+Shift+R)"><span data-i="mic"></span>Grabar</button>
       <div class="win">
+        <button class="ib" data-rec title="Grabar reunión o capacitación (Alt+Shift+R)"><span data-i="mic"></span></button>
         <button class="ib" data-op title="Opacidad"><span data-i="drop"></span></button>
         <button class="ib" id="bCompact" title="Vista compacta"><span data-i="shrink"></span></button>
         <button class="ib" id="bPause" title="Pausar la captura del portapapeles"><span data-i="pause"></span></button>
@@ -119,10 +119,7 @@
 <div class="recpop" id="recPop">
   <div class="seg" id="recKind"><span class="ind"></span><button data-k="reunion">Reunión</button><button data-k="capacitacion">Capacitación</button></div>
   <input id="recTitle" placeholder="Título (opcional)" autocomplete="off" spellcheck="false">
-  <label class="chk"><input type="checkbox" id="recMic" checked><span>Mi micrófono</span></label>
-  <label class="chk"><input type="checkbox" id="recSys" checked><span>Audio del PC <small>(Teams, Zoom, Meet, videos…)</small></span></label>
-  <button class="sbtn solid" id="recGo"><span class="rdot"></span>Empezar a grabar</button>
-  <small class="rnote">Avisa a los participantes que estás grabando. El audio se guarda solo en este equipo.</small>
+  <button class="ghost" id="recGo">Empezar</button>
 </div>
 
 <div class="oppop" id="opPop"><span data-i="drop"></span><input type="range" id="opRange" min="30" max="100" step="1"><b id="opVal"></b></div>

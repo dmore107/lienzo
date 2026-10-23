@@ -1,7 +1,7 @@
 // Base de datos local (SQLite) y sus migraciones.
 use std::path::Path;
 
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 
 /// Columnas que se leen de cada elemento, en el orden que espera `AppState::row_to_item`.
 pub const COLS: &str = "id,kind,content,note,ts,pinned,deleted_at,x,y,tone,pin_order,source";
@@ -65,5 +65,30 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
              COMMIT;",
         )?;
     }
+
+    // 4: transcripción de las grabaciones y ajustes generales.
+    if v < 4 {
+        conn.execute_batch(
+            "BEGIN;
+             ALTER TABLE sessions ADD COLUMN transcript TEXT NOT NULL DEFAULT '';
+             ALTER TABLE sessions ADD COLUMN progress REAL NOT NULL DEFAULT 0;
+             ALTER TABLE sessions ADD COLUMN error TEXT NOT NULL DEFAULT '';
+             CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT NOT NULL);
+             PRAGMA user_version=4;
+             COMMIT;",
+        )?;
+    }
     Ok(())
+}
+
+pub fn setting(conn: &Connection, key: &str) -> Option<String> {
+    conn.query_row("SELECT value FROM settings WHERE key=?1", params![key], |r| r.get(0)).optional().ok().flatten()
+}
+
+pub fn set_setting(conn: &Connection, key: &str, value: &str) -> rusqlite::Result<()> {
+    conn.execute(
+        "INSERT INTO settings(key,value) VALUES(?1,?2) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+        params![key, value],
+    )
+    .map(|_| ())
 }

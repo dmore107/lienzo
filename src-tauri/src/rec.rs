@@ -23,7 +23,7 @@ use crate::{now_ms, AppState, Patch, RecItem};
 
 /// Frecuencia que usa Whisper: grabar a 16 kHz evita convertir después.
 pub const RATE: u32 = 16_000;
-const SCOLS: &str = "id,kind,title,ts,ended_at,duration_ms,status,deleted_at,x,y,tone";
+const SCOLS: &str = "id,kind,title,ts,ended_at,duration_ms,status,deleted_at,x,y,tone,transcript,error";
 const KINDS: [&str; 2] = ["reunion", "capacitacion"];
 
 pub fn shortcut() -> Shortcut {
@@ -46,10 +46,12 @@ pub struct Session {
     x: Option<f64>,
     y: Option<f64>,
     tone: String,
+    transcript: String,
+    error: String,
     audio_path: String,
 }
 
-fn session_dir(state: &AppState, id: &str) -> PathBuf {
+pub(crate) fn session_dir(state: &AppState, id: &str) -> PathBuf {
     state.sess_dir.join(id)
 }
 
@@ -68,7 +70,22 @@ fn row_to_session(state: &AppState, r: &rusqlite::Row) -> rusqlite::Result<Sessi
         x: r.get(8)?,
         y: r.get(9)?,
         tone: r.get(10)?,
+        transcript: r.get(11)?,
+        error: r.get(12)?,
     })
+}
+
+/// Avisa a la interfaz que una sesión cambió (estado, transcripción…).
+pub(crate) fn emit_session(app: &AppHandle, id: &str) {
+    if let Some(s) = get_session(&app.state::<AppState>(), id) {
+        let _ = app.emit("session-updated", s);
+    }
+}
+
+/// Id de la sesión que se está grabando ahora, si hay una.
+pub(crate) fn recording_id(app: &AppHandle) -> Option<String> {
+    let st = current(app);
+    st.active.then_some(st.id)
 }
 
 fn get_session(state: &AppState, id: &str) -> Option<Session> {
@@ -124,6 +141,7 @@ pub fn delete_session(app: AppHandle, state: State<AppState>, id: String) -> Res
     if current(&app).id == id {
         return Err("Detén la grabación antes de eliminarla".into());
     }
+    crate::transcribe::cancel_if_current(&app, &id);
     {
         let db = state.db.lock().map_err(|e| e.to_string())?;
         db.execute("DELETE FROM sessions WHERE id=?1", params![id]).map_err(|e| e.to_string())?;
@@ -381,6 +399,7 @@ pub fn stop(app: &AppHandle) -> Result<Option<Session>, String> {
         let _ = app.emit("session-updated", s.clone());
     }
     res?;
+    crate::transcribe::after_recording(app, &a.id);
     Ok(s)
 }
 
