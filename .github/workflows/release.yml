@@ -21,7 +21,7 @@ jobs:
           $v = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
           if ("v$v" -ne "${{ github.ref_name }}") { throw "La etiqueta ${{ github.ref_name }} no coincide con la versión v$v de tauri.conf.json" }
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
           cache: npm
