@@ -50,5 +50,20 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
              COMMIT;",
         )?;
     }
+
+    // 3: grabaciones de reuniones y capacitaciones (el audio vive en sesiones/<id>/).
+    if v < 3 {
+        conn.execute_batch(
+            "BEGIN;
+             CREATE TABLE IF NOT EXISTS sessions(
+               id TEXT PRIMARY KEY, kind TEXT NOT NULL, title TEXT NOT NULL DEFAULT '',
+               ts INTEGER NOT NULL, ended_at INTEGER, duration_ms INTEGER NOT NULL DEFAULT 0,
+               status TEXT NOT NULL, mic INTEGER NOT NULL DEFAULT 1, system INTEGER NOT NULL DEFAULT 1,
+               deleted_at INTEGER, x REAL, y REAL, tone TEXT NOT NULL DEFAULT '');
+             CREATE INDEX IF NOT EXISTS idx_sessions_ts ON sessions(ts);
+             PRAGMA user_version=3;
+             COMMIT;",
+        )?;
+    }
     Ok(())
 }
