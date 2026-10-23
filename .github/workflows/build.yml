@@ -15,7 +15,8 @@ jobs:
       GGML_AVX2: "ON"
       GGML_FMA: "ON"
       GGML_F16C: "ON"
-      WHISPER_DONT_GENERATE_BINDINGS: "1"
+      # bindgen genera los bindings de whisper.cpp para Windows con el LLVM del runner
+      LIBCLANG_PATH: "C:/Program Files/LLVM/bin"
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
