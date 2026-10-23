@@ -116,6 +116,36 @@
   </div>
 </div>
 
+<!-- Visor de una grabación: audio + transcripción -->
+<div class="overlay" id="viewer">
+  <div class="sheet wide">
+    <div class="ehead"><span data-i="mic"></span><b id="vtitle"></b><span id="vmeta"></span><span class="sp"></span>
+      <button class="ib" id="vcopy" title="Copiar la transcripción"><span data-i="copy"></span></button>
+      <button class="ib" id="vfolder" title="Abrir la carpeta"><span data-i="folder"></span></button>
+      <button class="ib" id="vset" title="Ajustes de transcripción"><span data-i="sliders"></span></button>
+      <button class="ib" id="vclose" title="Cerrar (Esc)"><span data-i="x"></span></button></div>
+    <audio id="vaudio" controls preload="metadata"></audio>
+    <div class="vbody" id="vbody"></div>
+    <div class="efoot"><small>Clic en una hora para escucharla</small><span class="sp"></span><button class="ghost" id="vredo">Transcribir</button></div>
+  </div>
+</div>
+
+<!-- Ajustes de transcripción -->
+<div class="overlay" id="tset">
+  <div class="sheet">
+    <div class="ehead"><span data-i="sliders"></span><b>Transcripción</b><span class="sp"></span><button class="ib" id="tclose" title="Cerrar (Esc)"><span data-i="x"></span></button></div>
+    <div class="tbody">
+      <div class="tlbl">Modelo</div>
+      <div id="tmodels"></div>
+      <div class="tlbl">Idioma</div>
+      <div class="seg" id="tlang"><span class="ind"></span><button data-v="es">Español</button><button data-v="en">Inglés</button><button data-v="auto">Detectar</button></div>
+      <div class="tlbl">Al terminar de grabar</div>
+      <div class="seg" id="tauto"><span class="ind"></span><button data-v="1">Transcribir</button><button data-v="0">No hacer nada</button></div>
+      <small class="tnote">Todo se procesa en este equipo: el audio nunca sale de él.</small>
+    </div>
+  </div>
+</div>
+
 <div class="recpop" id="recPop">
   <div class="seg" id="recKind"><span class="ind"></span><button data-k="reunion">Reunión</button><button data-k="capacitacion">Capacitación</button></div>
   <input id="recTitle" placeholder="Título (opcional)" autocomplete="off" spellcheck="false">

@@ -360,3 +360,48 @@ body.compact .sheet{width:94vw}
 .sbadge.st-error{border-color:rgba(var(--rec),.5);color:rgb(var(--rec))}
 body.compact .recbar{margin:0 8px 8px;padding:6px 6px 6px 12px;gap:8px}
 body.compact .meters{display:none}
+
+/* ================= TRANSCRIPCIÓN ================= */
+.tprev{font-size:12px!important;color:var(--ink2)!important;margin-top:6px;-webkit-line-clamp:4!important}
+.sinfo .sact{margin-left:auto}
+.sact{border:0;background:none;color:var(--ink2);cursor:pointer;border-radius:8px;height:22px;min-width:22px;display:inline-grid;place-items:center;padding:0 4px;font:inherit;font-size:11.5px}
+.sact:hover{background:var(--hover);color:var(--ink)}
+.sact svg{width:13px;height:13px}
+.sact.txt{border:1px solid var(--line2);padding:0 9px;border-radius:999px}
+.sact:disabled{opacity:.45;pointer-events:none}
+.tbar{flex:1;display:block;height:4px;border-radius:4px;background:var(--line2);overflow:hidden;min-width:60px}
+.tbar i{display:block;height:100%;background:var(--ink2);transform-origin:left;transform:scaleX(0);transition:transform .3s var(--ease)}
+.tpct{font-variant-numeric:tabular-nums;min-width:32px;text-align:right}
+
+.sheet.wide{width:min(760px,94vw)}
+#vmeta{color:var(--ink3);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#vtitle{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:40%}
+#vaudio{display:block;width:calc(100% - 28px);margin:12px 14px 0;height:36px}
+#vaudio[hidden]{display:none}
+.vbody{max-height:58vh;overflow:auto;padding:10px 8px 12px;user-select:text}
+.vblk{display:flex;gap:12px;padding:8px 10px;border-radius:12px;transition:background .25s}
+.vblk.on{background:var(--hover)}
+.vts{flex:none;border:0;background:none;color:var(--ink3);font:inherit;font-size:11.5px;font-variant-numeric:tabular-nums;cursor:pointer;padding:2px 6px;border-radius:7px;height:fit-content;margin-top:1px}
+.vts:hover{background:var(--chip);color:var(--ink)}
+.vwho{display:block;font-size:11px;font-weight:600;color:var(--ink3);margin-bottom:2px;text-transform:uppercase;letter-spacing:.05em}
+.vblk.w-yo .vwho{color:var(--ink)}
+.vblk p{font-size:14px;line-height:1.6;color:var(--ink);white-space:pre-wrap}
+.vempty{padding:34px 20px;text-align:center;color:var(--ink3);font-size:13px;line-height:1.5}
+.vstate{display:flex;align-items:center;gap:10px;justify-content:center;max-width:360px;margin:0 auto}
+#vcopy:disabled{opacity:.4;pointer-events:none}
+#vredo[hidden]{display:none}
+
+.tbody{padding:8px 14px 16px;display:flex;flex-direction:column;gap:8px}
+.tlbl{font-size:10.5px;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-top:8px}
+.tm{display:flex;align-items:center;gap:12px;padding:9px 10px 9px 12px;border-radius:12px;border:1px solid var(--line);cursor:pointer;transition:background .2s,border-color .2s;margin-bottom:6px}
+.tm:hover{background:var(--hover)}
+.tm.on{border-color:var(--line2);background:var(--chip)}
+.tmi{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.tmi b{font-size:13px;font-weight:600}
+.tmi small{font-size:11.5px;color:var(--ink3)}
+.tma{display:flex;align-items:center;gap:4px;min-width:96px;justify-content:flex-end}
+.tma .tbar{min-width:70px}
+.tok{display:grid;place-items:center;width:22px;height:22px;color:var(--ink)}
+.tok svg{width:14px;height:14px}
+.tbody .seg button{flex:1;justify-content:center}
+.tnote{font-size:11px;color:var(--ink3);margin-top:8px}

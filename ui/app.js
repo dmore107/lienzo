@@ -28,6 +28,7 @@ const I={
   expand:'<svg viewBox="0 0 24 24"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></svg>',
   sort:'<svg viewBox="0 0 24 24"><path d="M7 5v14M4 16l3 3 3-3M14 7h6M14 12h4M14 17h2"/></svg>',
   check:'<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg>',
+  sliders:'<svg viewBox="0 0 24 24"><path d="M5 7h9M18 7h1M5 17h3M12 17h7"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>',
   mic:'<svg viewBox="0 0 24 24"><rect x="9" y="3.5" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v3.5"/></svg>',
   session:'<svg viewBox="0 0 24 24"><rect x="9" y="3.5" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v3.5"/></svg>',
   stop:'<svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/></svg>',
@@ -54,8 +55,8 @@ function moveInd(sel,btn){const ind=document.querySelector(sel+' .ind');if(!btn|
 function fromDb(r){return{id:r.id,type:r.kind,content:r.content,src:r.kind==='image'?fileSrc(r.content):null,thumb:r.thumb?fileSrc(r.thumb):null,note:r.note||'',ts:r.ts,pinned:r.pinned,deletedAt:r.deletedAt??null,x:r.x??null,y:r.y??null,tone:r.tone||'',pinOrder:r.pinOrder??null,source:r.source||''}}
 /* Grabaciones: se muestran en el tablero como una tarjeta más; el título vive en content */
 const KIND={reunion:'Reunión',capacitacion:'Capacitación'};
-const SSTATUS={grabando:'Grabando',grabada:'Audio guardado',error:'Error al grabar'};
-function fromSession(r){return{id:r.id,type:'session',skind:r.kind,content:r.title||'',ts:r.ts,durationMs:r.durationMs||0,status:r.status,audioPath:r.audioPath,deletedAt:r.deletedAt??null,x:r.x??null,y:r.y??null,tone:r.tone||'',pinned:false,note:'',source:''}}
+const SSTATUS={grabando:'Grabando',grabada:'Audio guardado',en_cola:'En cola',transcribiendo:'Transcribiendo',transcrita:'Transcrita',error:'Error al grabar'};
+function fromSession(r){return{id:r.id,type:'session',skind:r.kind,content:r.title||'',ts:r.ts,durationMs:r.durationMs||0,status:r.status,audioPath:r.audioPath,transcript:r.transcript||'',error:r.error||'',progress:0,deletedAt:r.deletedAt??null,x:r.x??null,y:r.y??null,tone:r.tone||'',pinned:false,note:'',source:''}}
 const sessTitle=i=>i.content||(KIND[i.skind]||'Grabación')+' sin título';
 const two=n=>String(n).padStart(2,'0');
 const fmtDur=ms=>{const t=Math.round(ms/1000),h=Math.floor(t/3600),m=Math.floor(t/60)%60,x=t%60;return h?h+':'+two(m)+':'+two(x):two(m)+':'+two(x)};
@@ -205,13 +206,23 @@ $('#next').onclick=()=>shift(1);
 $('#seg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;state.zoom=b.dataset.z;state.sel=null;render()});
 
 /* ================= LIENZO ================= */
+function sessionInfo(i){
+  const st=i.status;
+  if(st==='grabando')return '<span class="sbadge"><span class="rdot"></span>Grabando</span>';
+  if(st==='transcribiendo')return `<span class="tbar"><i style="transform:scaleX(${(i.progress||0)/100})"></i></span><span class="tpct">${i.progress||0}%</span><button class="sact" data-a="tcancel" title="Cancelar">${I.x}</button>`;
+  if(st==='en_cola')return `<span class="sbadge">En cola</span><button class="sact" data-a="tcancel" title="Quitar de la cola">${I.x}</button>`;
+  if(st==='transcrita')return `<span class="sbadge">Transcrita</span><span>${fmtDur(i.durationMs)}</span>`;
+  if(st==='error')return '<span class="sbadge st-error">Error al grabar</span>';
+  return (i.error?`<span class="sbadge st-error" title="${esc(i.error)}">No se transcribió</span>`:`<span>${fmtDur(i.durationMs)}</span>`)
+    +`<button class="sact txt" data-a="transcribe">${i.error?'Reintentar':'Transcribir'}</button>`;
+}
 function sessionCardHTML(i,anim,k){
   const rec=i.status==='grabando';
+  const prev=i.status==='transcrita'&&i.transcript?`<p class="tprev">${esc(i.transcript.replace(/\[[0-9:]+\]\s*/g,'').slice(0,240))}</p>`:'';
   return `<div class="card session${anim?' pop':''}${rec?' live':''}" data-id="${i.id}"${i.tone?` data-tone="${esc(i.tone)}"`:''} style="left:${i.x}px;top:${i.y}px;animation-delay:${anim?Math.min(k,20)*40:0}ms">
     <div class="meta">${I.session}<span class="tdot"></span><span title="${fmtShort(i.ts)}">${esc(KIND[i.skind]||'Grabación')} · ${new Date(i.ts).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})}</span></div>
-    <div class="body"><p class="stitle">${esc(sessTitle(i))}</p>
-      <div class="sinfo"><span class="sbadge st-${esc(i.status)}">${rec?'<span class="rdot"></span>':''}${esc(SSTATUS[i.status]||i.status)}</span>${rec?'':`<span>${fmtDur(i.durationMs)}</span>`}</div></div>
-    <div class="acts"><button data-a="edit" title="Renombrar">${I.pencil}</button><button data-a="folder" title="Abrir la carpeta del audio">${I.folder}</button><button data-a="del" title="Mover a la papelera">${I.trash}</button></div>
+    <div class="body"><p class="stitle">${esc(sessTitle(i))}</p>${prev}<div class="sinfo">${sessionInfo(i)}</div></div>
+    <div class="acts"><button data-a="view" title="Abrir">${I.text}</button><button data-a="edit" title="Renombrar">${I.pencil}</button><button data-a="del" title="Mover a la papelera">${I.trash}</button></div>
   </div>`;
 }
 function cardHTML(i,anim,k){
@@ -282,7 +293,7 @@ function renderCanvasKeep(animate){
   cards.forEach(c=>{const p=prev[c.dataset.id];if(p){c.classList.add('place');c.style.left=p[0];c.style.top=p[1]}});
   requestAnimationFrame(()=>requestAnimationFrame(()=>cards.forEach((c,k)=>{c.classList.remove('place');c.style.left=next[k][0];c.style.top=next[k][1]})));
 }
-function estH(c){const it=byId(c.dataset.id);if(!it)return 80;if(isSess(it))return 104;if(it.type==='image')return 190+(it.note?36:0);return 58+Math.min(6,Math.ceil(it.content.length/30))*19}
+function estH(c){const it=byId(c.dataset.id);if(!it)return 80;if(isSess(it))return 104+(it.status==='transcrita'&&it.transcript?78:0);if(it.type==='image')return 190+(it.note?36:0);return 58+Math.min(6,Math.ceil(it.content.length/30))*19}
 /* Tablero ordenado en filas */
 function layoutAuto(animate){
   const L=$('#layer');
@@ -362,7 +373,7 @@ function endDrag(e){
 }
 layer.addEventListener('pointerup',endDrag);
 layer.addEventListener('pointercancel',endDrag);
-layer.addEventListener('dblclick',e=>{const c=e.target.closest('.card');if(c&&!e.target.closest('button'))openEditor(c.dataset.id)});
+layer.addEventListener('dblclick',e=>{const c=e.target.closest('.card');if(!c||e.target.closest('button'))return;if(isSess(byId(c.dataset.id)))openViewer(c.dataset.id);else openEditor(c.dataset.id)});
 layer.addEventListener('click',e=>{
   const b=e.target.closest('button[data-a]'); if(!b)return;
   const c=b.closest('.card'), it=byId(c.dataset.id), a=b.dataset.a;
@@ -370,6 +381,9 @@ layer.addEventListener('click',e=>{
   if(a==='copy')copyItem(it);
   if(a==='edit')openEditor(it.id);
   if(a==='folder')openFolder(it);
+  if(a==='view')openViewer(it.id);
+  if(a==='transcribe')startTranscribe(it);
+  if(a==='tcancel')invoke('cancel_transcription',{id:it.id});
   if(a==='pin'){pinIt(it,!it.pinned);c.classList.toggle('pinned',it.pinned);toast(it.pinned?'Fijado':'Quitado de fijados')}
   if(a==='del')trashItem(it,c);
 });
@@ -593,7 +607,7 @@ function snippet(text,ranges){
   return (a>0?'…':'')+markup(t,ranges,a,b)+(b<t.length?'…':'');
 }
 let sTerms=[];
-function searchText(i){return i.type==='image'?(i.note||''):i.content}
+function searchText(i){return i.type==='image'?(i.note||''):isSess(i)?(i.content+(i.transcript?' — '+i.transcript:'')):i.content}
 function runSearch(){
   const q=$('#q').value.trim(); sTerms=q?terms(q):[];
   const hits=[];
@@ -616,7 +630,7 @@ function runSearch(){
 function paintResults(){
   $('#results').innerHTML=sRes.length?sRes.map((h,k)=>{
     const i=h.i, body=i.type==='image'?(i.note?snippet(i.note,h.r):'Imagen')
-      :isSess(i)?esc(KIND[i.skind]||'Grabación')+' · '+(i.content?snippet(i.content,h.r):'sin título')+' · '+fmtDur(i.durationMs)
+      :isSess(i)?esc(KIND[i.skind]||'Grabación')+' · '+fmtDur(i.durationMs)+' · '+(searchText(i)?snippet(searchText(i),h.r):'sin título')
       :snippet(i.content,h.r);
     return `<div class="res${k===sIdx?' on':''}" data-id="${i.id}">${I[i.type]}<div class="rmain"><span class="rt">${body}</span>
       <span class="rmeta"><span>${fmtShort(i.ts)}</span>${i.source?`<span>${esc(appName(i.source))}</span>`:''}${i.pinned?'<span class="rtag">Fijado</span>':''}${h.n?`<span class="rbadge">${I.search}${h.n}</span>`:''}</span></div></div>`;
@@ -634,12 +648,13 @@ function jumpTo(id){
     c.scrollIntoView({block:'nearest',behavior:'smooth'});},500);
 }
 $('#q').addEventListener('input',runSearch);
-$('#results').addEventListener('click',e=>{const r=e.target.closest('.res');if(r)jumpTo(r.dataset.id)});
+$('#results').addEventListener('click',e=>{const r=e.target.closest('.res');if(!r)return;const it=byId(r.dataset.id);if(isSess(it)){closeSearch();openViewer(it.id)}else jumpTo(r.dataset.id)});
 $('#search').addEventListener('click',e=>{if(e.target.id==='search')closeSearch()});
 $('#openS').onclick=openSearch;
 
 document.addEventListener('keydown',e=>{
   if(e.target.closest&&e.target.closest('#recPop'))return;
+  if($('#viewer').classList.contains('open')||$('#tset').classList.contains('open')){if(e.key==='Escape'){closeViewer();closeTset()}return}
   const edOpen=$('#editor').classList.contains('open'), sOpen=$('#search').classList.contains('open');
   if(edOpen){
     if(e.key==='Escape')closeEditor();
@@ -655,7 +670,7 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Escape')closeSearch();
   else if(e.key==='ArrowDown'){e.preventDefault();sIdx=Math.min(sIdx+1,sRes.length-1);paintResults()}
   else if(e.key==='ArrowUp'){e.preventDefault();sIdx=Math.max(sIdx-1,0);paintResults()}
-  else if(e.key==='Enter'&&sRes[sIdx]){const it=sRes[sIdx].i;if(isSess(it))jumpTo(it.id);else{closeSearch();pasteItem(it)}}
+  else if(e.key==='Enter'&&sRes[sIdx]){const it=sRes[sIdx].i;if(isSess(it)){closeSearch();openViewer(it.id)}else{closeSearch();pasteItem(it)}}
 });
 
 /* ================= CONTROLES DE VENTANA ================= */
@@ -709,7 +724,14 @@ document.addEventListener('click',e=>{
   if(!e.target.closest('#recPop'))closeRecPop();
 });
 $('#recPause').onclick=()=>invoke('rec_pause',{paused:!rec.paused});
-$('#recStop').onclick=async()=>{try{const s=await invoke('rec_stop');if(s)toast('Grabación guardada · '+fmtDur(s.durationMs))}catch(e){toast('No se pudo guardar: '+e)}};
+$('#recStop').onclick=async()=>{
+  try{
+    const s=await invoke('rec_stop'); if(!s)return;
+    const su=await invoke('transcribe_setup'), m=su.models.find(x=>x.id===su.model);
+    if(su.auto&&!(m&&m.installed))toast('Grabación guardada. Para transcribirla descarga un modelo','Configurar',openTset);
+    else toast('Grabación guardada · '+fmtDur(s.durationMs));
+  }catch(e){toast('No se pudo guardar: '+e)}
+};
 function paintRec(){
   const on=!!rec.active, bar=$('#recBar');
   bar.hidden=!on; document.body.classList.toggle('recording',on);
@@ -729,11 +751,114 @@ listen('rec-tick',ev=>{const t=ev.payload;rec.elapsedMs=t.elapsedMs;rec.paused=t
 listen('rec-error',ev=>toast(''+ev.payload));
 function upsertSession(r){
   const s=fromSession(r), old=byId(s.id);
-  if(old){Object.assign(old,s);delete old._f;refreshStill();return}
+  if(old){const pr=old.progress;Object.assign(old,s);if(s.status==='transcribiendo')old.progress=pr;delete old._f;refreshStill();if(viewing===s.id)openViewer(s.id);return}
   items.push(s); const [a,b]=range(); if(!(s.ts>=a&&s.ts<b))goHome();
   fresh=s.id; render();
 }
 listen('session-updated',ev=>upsertSession(ev.payload));
+
+/* ================= TRANSCRIPCIÓN ================= */
+let tsetup=null, dl=null;
+async function loadSetup(){try{tsetup=await invoke('transcribe_setup')}catch(e){tsetup=null}return tsetup}
+async function startTranscribe(it){
+  const su=await loadSetup(); const m=su&&su.models.find(x=>x.id===su.model);
+  if(!m||!m.installed){toast('Primero descarga un modelo de transcripción');openTset();return}
+  try{await invoke('transcribe_session',{id:it.id})}catch(e){toast(''+e)}
+}
+listen('transcribe-progress',ev=>{
+  const {id,pct}=ev.payload, it=byId(id); if(!it)return;
+  it.progress=pct;
+  if(it.status!=='transcribiendo'){it.status='transcribiendo';refreshStill()}
+  const c=layer.querySelector(`.card[data-id="${id}"]`);
+  if(c){const b=c.querySelector('.tbar i');if(b)b.style.transform='scaleX('+pct/100+')';const t=c.querySelector('.tpct');if(t)t.textContent=pct+'%'}
+  if(viewing===id)paintViewerStatus(it);
+});
+
+/* ---- Ajustes: modelo, idioma y transcripción automática ---- */
+function openTset(){$('#tset').classList.add('open');loadSetup().then(paintTset)}
+function closeTset(){$('#tset').classList.remove('open')}
+function paintTset(){
+  const su=tsetup; if(!su)return;
+  $('#tmodels').innerHTML=su.models.map(m=>{
+    const sel=m.id===su.model, busy=dl&&dl.id===m.id;
+    const act=busy?`<span class="tbar"><i style="transform:scaleX(${dl.total?dl.done/dl.total:0})"></i></span><button class="sact" data-m="cancel" title="Cancelar">${I.x}</button>`
+      :m.installed?(sel?`<span class="tok">${I.check}</span>`:`<button class="sact txt" data-m="use">Usar</button>`)+`<button class="sact" data-m="delete" title="Eliminar del equipo">${I.trash}</button>`
+      :`<button class="sact txt" data-m="download"${dl?' disabled':''}>Descargar</button>`;
+    return `<div class="tm${sel?' on':''}" data-id="${m.id}"><div class="tmi"><b>${esc(m.label)}</b><small>${esc(m.hint)} · ${m.sizeMb} MB</small></div><div class="tma">${act}</div></div>`;
+  }).join('');
+  document.querySelectorAll('#tlang button').forEach(b=>b.classList.toggle('on',b.dataset.v===su.language));
+  document.querySelectorAll('#tauto button').forEach(b=>b.classList.toggle('on',b.dataset.v===(su.auto?'1':'0')));
+  moveInd('#tlang',document.querySelector(`#tlang button[data-v="${su.language}"]`));
+  moveInd('#tauto',document.querySelector(`#tauto button[data-v="${su.auto?'1':'0'}"]`));
+}
+async function savePrefs(ch){
+  Object.assign(tsetup,ch); paintTset();
+  try{await invoke('set_transcribe_prefs',{model:tsetup.model,language:tsetup.language,auto:tsetup.auto})}catch(e){toast(''+e)}
+}
+$('#tlang').addEventListener('click',e=>{const b=e.target.closest('button');if(b&&tsetup)savePrefs({language:b.dataset.v})});
+$('#tauto').addEventListener('click',e=>{const b=e.target.closest('button');if(b&&tsetup)savePrefs({auto:b.dataset.v==='1'})});
+$('#tmodels').addEventListener('click',async e=>{
+  const row=e.target.closest('.tm'); if(!row||!tsetup)return;
+  const id=row.dataset.id, m=tsetup.models.find(x=>x.id===id), a=e.target.closest('[data-m]')?.dataset.m;
+  if(a==='download'){
+    dl={id,done:0,total:m.sizeMb*1048576}; paintTset();
+    try{await invoke('download_model',{id});dl=null;await loadSetup();await savePrefs({model:id});toast('Modelo '+m.label+' listo')}
+    catch(err){dl=null;paintTset();toast(''+err)}
+  }
+  else if(a==='cancel')invoke('cancel_download');
+  else if(a==='delete'){try{await invoke('delete_model',{id});await loadSetup();paintTset();toast('Modelo eliminado del equipo')}catch(err){toast(''+err)}}
+  else if((a==='use'||!a)&&m.installed&&id!==tsetup.model)savePrefs({model:id});
+});
+listen('model-progress',ev=>{const p=ev.payload;if(dl&&dl.id===p.id){dl.done=p.done;dl.total=p.total;const b=document.querySelector(`.tm[data-id="${p.id}"] .tbar i`);if(b)b.style.transform='scaleX('+(p.total?p.done/p.total:0)+')'}});
+$('#tclose').onclick=closeTset;
+$('#tset').addEventListener('click',e=>{if(e.target.id==='tset')closeTset()});
+
+/* ---- Visor: transcripción con el audio ---- */
+let viewing=null, vblocks=[];
+const clock=ms=>fmtDur(ms);
+async function openViewer(id){
+  const it=byId(id); if(!it)return;
+  viewing=id; $('#viewer').classList.add('open');
+  $('#vtitle').textContent=sessTitle(it);
+  $('#vmeta').textContent='· '+(KIND[it.skind]||'Grabación')+' · '+fmtShort(it.ts)+(it.durationMs?' · '+fmtDur(it.durationMs):'');
+  const au=$('#vaudio'); au.hidden=it.status==='grabando'||!it.audioPath; if(!au.hidden&&au.dataset.id!==id){au.src=fileSrc(it.audioPath);au.dataset.id=id}
+  $('#vredo').hidden=!(it.status==='transcrita'||it.status==='grabada');
+  $('#vredo').textContent=it.status==='transcrita'?'Volver a transcribir':'Transcribir';
+  $('#vcopy').disabled=!it.transcript;
+  await paintViewer(it);
+}
+function closeViewer(){$('#viewer').classList.remove('open');const au=$('#vaudio');au.pause();viewing=null}
+function paintViewerStatus(it){
+  const box=$('#vbody .vstate'); if(!box)return;
+  if(it.status==='transcribiendo')box.innerHTML=`<span class="tbar"><i style="transform:scaleX(${(it.progress||0)/100})"></i></span><span>Transcribiendo · ${it.progress||0}%</span>`;
+}
+async function paintViewer(it){
+  const body=$('#vbody'); vblocks=[];
+  if(it.status!=='transcrita'){
+    const msg={grabando:'Se está grabando. La transcripción estará aquí cuando termine.',en_cola:'En cola para transcribir…',transcribiendo:'',error:'Esta grabación no se guardó bien.'}[it.status]
+      ??(it.error?'No se pudo transcribir: '+it.error:'Aún no está transcrita.');
+    body.innerHTML=`<div class="vempty"><div class="vstate">${esc(msg)}</div></div>`; paintViewerStatus(it); return;
+  }
+  let t=null; try{t=await invoke('get_transcript',{id:it.id})}catch(e){}
+  if(viewing!==it.id)return;
+  if(!t||!t.segments.length){body.innerHTML=`<div class="vempty">${esc(it.transcript||'Sin texto')}</div>`;return}
+  const both=t.segments.some(s=>s.who==='yo')&&t.segments.some(s=>s.who==='otros');
+  /* Párrafos: cambia quien habla o pasan 45 s */
+  for(const s of t.segments){const b=vblocks[vblocks.length-1];if(b&&b.who===s.who&&s.t0-b.t0<45000){b.text+=' '+s.text;b.t1=s.t1}else vblocks.push({...s})}
+  body.innerHTML=vblocks.map((b,k)=>`<div class="vblk${both?' w-'+b.who:''}" data-k="${k}"><button class="vts" data-t="${b.t0}">${clock(b.t0)}</button><div>${both?`<span class="vwho">${b.who==='yo'?'Tú':'Participantes'}</span>`:''}<p>${esc(b.text)}</p></div></div>`).join('');
+}
+$('#vbody').addEventListener('click',e=>{const b=e.target.closest('.vts');if(!b)return;const au=$('#vaudio');au.currentTime=+b.dataset.t/1000;au.play().catch(()=>{})});
+$('#vaudio').addEventListener('timeupdate',e=>{
+  const ms=e.target.currentTime*1000; let on=-1;
+  vblocks.forEach((b,k)=>{if(ms>=b.t0)on=k});
+  document.querySelectorAll('#vbody .vblk').forEach((el,k)=>el.classList.toggle('on',k===on));
+});
+$('#vclose').onclick=closeViewer;
+$('#viewer').addEventListener('click',e=>{if(e.target.id==='viewer')closeViewer()});
+$('#vcopy').onclick=async()=>{const it=byId(viewing);if(!it||!it.transcript)return;try{await invoke('copy_text',{text:it.transcript});toast('Transcripción copiada')}catch(e){toast(''+e)}};
+$('#vfolder').onclick=()=>{const it=byId(viewing);if(it)openFolder(it)};
+$('#vset').onclick=openTset;
+$('#vredo').onclick=()=>{const it=byId(viewing);if(it)startTranscribe(it)};
 
 /* ================= ACTUALIZACIONES ================= */
 /* Revisa GitHub Releases al abrir y cada 6 horas; si hay versión nueva aparece el botón arriba */
@@ -782,7 +907,7 @@ document.addEventListener('contextmenu',e=>{
   let html='';
   if(card&&isSess(byId(card.dataset.id))){
     const it=byId(card.dataset.id); ctxActions={it,el:card};
-    html=mi('edit','pencil','Renombrar')+mi('folder','folder','Abrir la carpeta del audio')+'<hr>'+toneRow(it)+'<hr>'+mi('del','trash','Mover a la papelera',false,'danger')+(compact?'':'<hr>'+sortMenu());
+    html=mi('view','text','Abrir')+mi('edit','pencil','Renombrar')+(it.status==='grabada'||it.status==='transcrita'?mi('transcribe','spell',it.status==='transcrita'?'Volver a transcribir':'Transcribir'):'')+mi('folder','folder','Abrir la carpeta del audio')+'<hr>'+toneRow(it)+'<hr>'+mi('del','trash','Mover a la papelera',false,'danger')+(compact?'':'<hr>'+sortMenu());
   }else if(card){
     const it=byId(card.dataset.id); ctxActions={it,el:card};
     html=mi('paste','pasteIn','Pegar en la app anterior')+mi('copy','copy','Copiar')+mi('edit','pencil','Editar')
@@ -795,7 +920,7 @@ document.addEventListener('contextmenu',e=>{
       :mi('paste','pasteIn','Pegar en la app anterior')+mi('copy','copy','Copiar')+mi('edit','pencil','Editar')+`<hr>`+toneRow(it)+`<hr>`+mi('pin','pin','Quitar de fijados');
   }else if(e.target.closest('#board')){
     ctxActions={};
-    html=mi('new','plus','Nueva nota')+(compact?'':`<hr>`+sortMenu());
+    html=mi('new','plus','Nueva nota')+mi('tset','sliders','Ajustes de transcripción')+(compact?'':`<hr>`+sortMenu());
   }else return;
   openCtx(e.clientX,e.clientY,html);
 });
@@ -820,6 +945,9 @@ $('#ctx').addEventListener('click',async e=>{
   else if(c==='restore'){patch(it,{deletedAt:null});fresh=it.id;refreshStill();toast('Restaurado')}
   else if(c==='kill')killItem(it);
   else if(c==='folder')openFolder(it);
+  else if(c==='view')openViewer(it.id);
+  else if(c==='transcribe')startTranscribe(it);
+  else if(c==='tset')openTset();
 });
 document.addEventListener('pointerdown',e=>{if(!e.target.closest('#ctx'))closeCtx()},true);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#ctx').classList.contains('open')){closeCtx();e.stopImmediatePropagation()}},true);

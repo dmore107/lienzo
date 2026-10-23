@@ -37,12 +37,16 @@ Reemplazo del portapapeles de Windows: todo lo que copias (texto e imágenes) ca
 
 | Acción | Cómo |
 |---|---|
-| Grabar | Botón **Grabar** arriba: eliges Reunión o Capacitación, un título opcional y qué fuentes usar |
+| Grabar | Ícono del micrófono arriba: eliges Reunión o Capacitación y un título opcional. Siempre graba tu micrófono y el audio del PC |
 | Grabar al instante | **Alt+Shift+R** o Bandeja → **Grabar reunión** (micrófono + audio del PC). El mismo atajo detiene |
 | Pausar / detener | Barra roja sobre el tablero, con el tiempo y el nivel de cada fuente |
+| Transcribir | Automático al terminar de grabar (o **Transcribir** en la tarjeta). Todo se procesa en tu equipo |
+| Leer y escuchar | Doble clic en la tarjeta: transcripción con el audio; clic en una hora para escuchar ese momento |
+| Copiar la transcripción | En el visor, botón de copiar |
+| Modelo e idioma | Clic derecho en el tablero → **Ajustes de transcripción** (Rápido 57 MB · Equilibrado 181 MB · Preciso 547 MB) |
 | Ver el audio | Clic derecho en la tarjeta → **Abrir la carpeta del audio** |
 
-Se graban por separado tu micrófono (canal izquierdo) y lo que suena en el PC (canal derecho: Teams, Zoom, Meet, videos), en un WAV de 16 kHz (unos 230 MB por hora). Si Lienzo se cierra a mitad de una grabación, el audio se conserva hasta los últimos segundos. La transcripción y el acta llegan en las próximas versiones.
+Se graban por separado tu micrófono (canal izquierdo) y lo que suena en el PC (canal derecho: Teams, Zoom, Meet, videos), en un WAV de 16 kHz (unos 230 MB por hora). Si Lienzo se cierra a mitad de una grabación, el audio se conserva hasta los últimos segundos. La transcripción marca qué dijiste **tú** y qué dijeron los **participantes** según el canal, y queda también en `transcripcion.txt` junto al audio. El modelo se descarga una sola vez desde Hugging Face y se verifica su huella SHA-256. El acta con resumen, decisiones y tareas llega en la próxima versión.
 
 Avisa a los participantes que estás grabando. Si el micrófono no se oye, revisa en Configuración → Privacidad y seguridad → Micrófono que **las aplicaciones de escritorio** tengan acceso.
 
@@ -61,7 +65,7 @@ Configuración → Sistema → Portapapeles → desactiva **Historial del portap
 
 ## Desarrollo
 
-Requiere Rust, las herramientas de compilación de Visual Studio y Node.js:
+Requiere Rust, las herramientas de compilación de Visual Studio, CMake y Node.js. Para que whisper.cpp funcione en cualquier CPU con AVX2, define antes `GGML_NATIVE=OFF` (lo hace GitHub Actions):
 
 ```
 npm install
@@ -74,6 +78,7 @@ npm run build    # genera el instalador en src-tauri/target/release/bundle/nsis
 - `src-tauri/src/db.rs` — SQLite y migraciones numeradas (`PRAGMA user_version`)
 - `src-tauri/src/win.rs` — API de Windows: portapapeles, foco, pegado, app de origen
 - `src-tauri/src/rec.rs` — grabación de reuniones y capacitaciones (micrófono + audio del PC)
+- `src-tauri/src/transcribe.rs` — transcripción local con whisper.cpp, modelos y cola de trabajo
 - `src-tauri/src/updater.rs` — actualizaciones firmadas desde GitHub Releases
 
 ## Publicar una versión
