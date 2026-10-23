@@ -33,6 +33,7 @@
       </div>
       <button class="sbtn solid" id="newNote"><span data-i="plus"></span>Nota</button>
       <button class="sbtn" id="openS"><span data-i="search"></span>Buscar<kbd>Ctrl K</kbd></button>
+      <button class="sbtn recb" data-rec title="Grabar una reunión o capacitación (Alt+Shift+R)"><span data-i="mic"></span>Grabar</button>
       <div class="win">
         <button class="ib" data-op title="Opacidad"><span data-i="drop"></span></button>
         <button class="ib" id="bCompact" title="Vista compacta"><span data-i="shrink"></span></button>
@@ -48,6 +49,7 @@
       <button class="ib sm" id="cNext" title="Hora siguiente"><span data-i="right"></span></button>
       <div class="sp" data-tauri-drag-region></div>
       <button class="ib sm" id="cNew" title="Nueva nota"><span data-i="plus"></span></button>
+      <button class="ib sm" data-rec title="Grabar (Alt+Shift+R)"><span data-i="mic"></span></button>
       <button class="ib sm" id="cPins" title="Fijados"><span data-i="pin"></span></button>
       <button class="ib sm" id="cSearch" title="Buscar (Ctrl+K)"><span data-i="search"></span></button>
       <button class="ib sm" data-op title="Opacidad"><span data-i="drop"></span></button>
@@ -57,6 +59,12 @@
   </header>
 
   <main class="stage">
+    <div class="recbar" id="recBar" hidden>
+      <span class="rdot"></span><b id="recTime">00:00</b><span class="rlabel" id="recLabel"></span>
+      <span class="meters"><span class="mt" title="Tu micrófono"><span data-i="mic"></span><i><em id="recMeterMic"></em></i></span><span class="mt" title="Audio del PC"><span data-i="paste"></span><i><em id="recMeterSys"></em></i></span></span>
+      <button class="ib sm" id="recPause" title="Pausar"><span data-i="pause"></span></button>
+      <button class="sbtn solid sm" id="recStop" title="Detener y guardar (Alt+Shift+R)"><span data-i="stop"></span>Detener</button>
+    </div>
     <div class="sub"><div id="rlabel"></div><button class="tidy" id="tidy" title="Cómo se organiza el tablero (también con clic derecho)"></button><div id="count"></div></div>
     <div class="board" id="board">
       <div id="layer"></div>
@@ -106,6 +114,15 @@
       <button class="sbtn solid" id="esave">Guardar</button>
     </div>
   </div>
+</div>
+
+<div class="recpop" id="recPop">
+  <div class="seg" id="recKind"><span class="ind"></span><button data-k="reunion">Reunión</button><button data-k="capacitacion">Capacitación</button></div>
+  <input id="recTitle" placeholder="Título (opcional)" autocomplete="off" spellcheck="false">
+  <label class="chk"><input type="checkbox" id="recMic" checked><span>Mi micrófono</span></label>
+  <label class="chk"><input type="checkbox" id="recSys" checked><span>Audio del PC <small>(Teams, Zoom, Meet, videos…)</small></span></label>
+  <button class="sbtn solid" id="recGo"><span class="rdot"></span>Empezar a grabar</button>
+  <small class="rnote">Avisa a los participantes que estás grabando. El audio se guarda solo en este equipo.</small>
 </div>
 
 <div class="oppop" id="opPop"><span data-i="drop"></span><input type="range" id="opRange" min="30" max="100" step="1"><b id="opVal"></b></div>

@@ -33,10 +33,23 @@ Reemplazo del portapapeles de Windows: todo lo que copias (texto e imágenes) ca
 | Iniciar con Windows | Bandeja → **Iniciar con Windows** (arranca oculto en la bandeja) |
 | Actualizar | Cuando hay versión nueva aparece **Actualizar a x.y.z** arriba; también Bandeja → **Buscar actualizaciones** |
 
+## Reuniones y capacitaciones
+
+| Acción | Cómo |
+|---|---|
+| Grabar | Botón **Grabar** arriba: eliges Reunión o Capacitación, un título opcional y qué fuentes usar |
+| Grabar al instante | **Alt+Shift+R** o Bandeja → **Grabar reunión** (micrófono + audio del PC). El mismo atajo detiene |
+| Pausar / detener | Barra roja sobre el tablero, con el tiempo y el nivel de cada fuente |
+| Ver el audio | Clic derecho en la tarjeta → **Abrir la carpeta del audio** |
+
+Se graban por separado tu micrófono (canal izquierdo) y lo que suena en el PC (canal derecho: Teams, Zoom, Meet, videos), en un WAV de 16 kHz (unos 230 MB por hora). Si Lienzo se cierra a mitad de una grabación, el audio se conserva hasta los últimos segundos. La transcripción y el acta llegan en las próximas versiones.
+
+Avisa a los participantes que estás grabando. Si el micrófono no se oye, revisa en Configuración → Privacidad y seguridad → Micrófono que **las aplicaciones de escritorio** tengan acceso.
+
 ## Dónde quedan los datos
 
 Solo en el equipo donde lo ejecutas:
-`%LOCALAPPDATA%\com.dani.lienzo\` (base `lienzo.db` + carpeta `img`).
+`%LOCALAPPDATA%\com.dani.lienzo\` (base `lienzo.db`, carpeta `img` y carpeta `sesiones` con el audio de cada grabación).
 Si instalas Lienzo en otro equipo, arranca vacío. Tu contenido nunca sale del equipo; lo único que Lienzo consulta en internet es si hay una versión nueva en GitHub.
 
 El contenido que los gestores de contraseñas marcan como privado (KeePass, 1Password, Bitwarden…) no se guarda.
@@ -60,6 +73,7 @@ npm run build    # genera el instalador en src-tauri/target/release/bundle/nsis
 - `src-tauri/src/main.rs` — captura del portapapeles, comandos, bandeja y arranque
 - `src-tauri/src/db.rs` — SQLite y migraciones numeradas (`PRAGMA user_version`)
 - `src-tauri/src/win.rs` — API de Windows: portapapeles, foco, pegado, app de origen
+- `src-tauri/src/rec.rs` — grabación de reuniones y capacitaciones (micrófono + audio del PC)
 - `src-tauri/src/updater.rs` — actualizaciones firmadas desde GitHub Releases
 
 ## Publicar una versión
