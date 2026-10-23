@@ -172,7 +172,8 @@ pub fn start_worker(app: AppHandle) {
             None => {
                 let tr = app.state::<Transcriber>();
                 let Ok(g) = tr.wake.lock() else { return };
-                if let Ok((mut g, _)) = tr.cv.wait_timeout_while(g, Duration::from_secs(60), |w| !*w) {
+                let waited = tr.cv.wait_timeout_while(g, Duration::from_secs(60), |w| !*w);
+                if let Ok((mut g, _)) = waited {
                     *g = false;
                 }
             }
