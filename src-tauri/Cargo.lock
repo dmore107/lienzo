@@ -2507,13 +2507,14 @@ dependencies = [
 
 [[package]]
 name = "lienzo"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "arboard",
  "base64 0.22.1",
  "cpal",
  "hound",
  "image",
+ "minisign-verify",
  "reqwest",
  "rusqlite",
  "serde",
