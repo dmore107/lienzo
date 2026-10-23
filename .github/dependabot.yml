@@ -1,0 +1,13 @@
+# Avisa con un pull request cuando hay versiones nuevas de las acciones de GitHub
+# (mantiene los SHA fijados al día) y de las dependencias de Rust.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+  - package-ecosystem: cargo
+    directory: /src-tauri
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
