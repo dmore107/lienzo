@@ -53,3 +53,30 @@ jobs:
           releaseDraft: false
           prerelease: false
           includeUpdaterJson: true
+
+      - name: Versión portable (zip para descargar + exe firmado para actualizarse)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          $v = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          New-Item -ItemType Directory -Force out/Lienzo/datos | Out-Null
+          Copy-Item src-tauri/target/release/lienzo.exe out/Lienzo/Lienzo.exe
+          $leeme = @(
+            'Lienzo portable'
+            ''
+            'Esta carpeta guarda todo lo de Lienzo: portapapeles, imagenes, grabaciones,'
+            'transcripciones y modelos. Mientras exista junto a Lienzo.exe, Lienzo no usa'
+            'ninguna otra carpeta del equipo ni el registro de Windows.'
+            ''
+            'Para llevarlo a otro equipo o a una USB, copia la carpeta Lienzo completa.'
+            'No borres esta carpeta: perderias tus datos.'
+          )
+          Set-Content out/Lienzo/datos/LEEME.txt -Encoding utf8 -Value $leeme
+          Compress-Archive -Path out/Lienzo -DestinationPath "out/Lienzo_${v}_portable.zip"
+          Copy-Item src-tauri/target/release/lienzo.exe "out/Lienzo_${v}_portable.exe"
+          npx tauri signer sign "out/Lienzo_${v}_portable.exe"
+          if (-not (Test-Path "out/Lienzo_${v}_portable.exe.sig")) { throw "No se generó la firma del portable" }
+          gh release upload "v$v" "out/Lienzo_${v}_portable.zip" "out/Lienzo_${v}_portable.exe" "out/Lienzo_${v}_portable.exe.sig" --clobber

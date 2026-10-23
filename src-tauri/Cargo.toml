@@ -1,6 +1,6 @@
 [package]
 name = "lienzo"
-version = "0.4.0"
+version = "0.5.0"
 description = "Portapapeles con lienzo y línea de tiempo"
 edition = "2021"
 
@@ -25,6 +25,7 @@ hound = "3.5"
 whisper-rs = "0.16"
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "http2"] }
 sha2 = "0.10"
+minisign-verify = "0.3"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.59", features = [

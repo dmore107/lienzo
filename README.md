@@ -4,7 +4,19 @@ Reemplazo del portapapeles de Windows: todo lo que copias (texto e imágenes) ca
 
 ## Usarlo
 
-1. Descarga `Lienzo_x.y.z_x64-setup.exe` desde [Releases](https://github.com/dmore107/lienzo/releases/latest) e instálalo (no pide permisos de administrador; se instala en tu perfil).
+Cada versión se publica en [Releases](https://github.com/dmore107/lienzo/releases/latest) de dos formas, con las mismas funciones:
+
+| | Instalable | Portable |
+|---|---|---|
+| Archivo | `Lienzo_x.y.z_x64-setup.exe` | `Lienzo_x.y.z_portable.zip` |
+| Cómo se usa | Se instala en tu perfil (sin permisos de administrador) | Se descomprime donde quieras (Documentos, una USB…) y se abre `Lienzo.exe` |
+| Dónde guarda | `%LOCALAPPDATA%\com.dani.lienzo\` | En la carpeta `datos` junto a `Lienzo.exe` |
+| Registro de Windows | Solo si activas Iniciar con Windows | Nunca |
+| Actualizaciones | Automáticas | Automáticas: descarga el nuevo `Lienzo.exe`, verifica la firma y lo reemplaza |
+
+Lienzo es portable cuando encuentra una carpeta `datos` junto a su ejecutable. Si la borras, se comporta como la versión instalada. Para pasar tus datos de una a otra, copia el contenido de una carpeta de datos a la otra con Lienzo cerrado.
+
+1. Instala o descomprime Lienzo y ábrelo.
 2. Queda en la bandeja del sistema (junto al reloj).
 3. Ábrelo con **Alt+V** (o **Win+V** si desactivas el historial del portapapeles de Windows).
 4. Copia cualquier cosa con Ctrl+C: aparece en el lienzo automáticamente.

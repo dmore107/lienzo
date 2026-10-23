@@ -3,6 +3,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod db;
+mod portable;
 mod rec;
 mod transcribe;
 mod updater;
@@ -55,6 +56,7 @@ struct AppState {
     db: Mutex<Connection>,
     img_dir: PathBuf,
     sess_dir: PathBuf,
+    portable: bool,
     paused: AtomicBool,
     keep_open: AtomicBool,
     writing: AtomicBool,
@@ -369,6 +371,7 @@ struct Status {
     hotkeys: Vec<String>,
     data_dir: String,
     version: String,
+    portable: bool,
 }
 
 #[tauri::command]
@@ -379,6 +382,7 @@ fn status(app: AppHandle, state: State<AppState>) -> Status {
         hotkeys: state.hotkeys.lock().map(|h| h.clone()).unwrap_or_default(),
         data_dir: state.img_dir.parent().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default(),
         version: app.package_info().version.to_string(),
+        portable: state.portable,
     }
 }
 
@@ -616,7 +620,20 @@ fn main() {
                 .build(),
         )
         .setup(|app| {
-            let base = app.path().app_local_data_dir().expect("sin carpeta de datos");
+            portable::cleanup_old();
+            let portable_dir = portable::data_dir();
+            let base = match &portable_dir {
+                Some(d) => d.clone(),
+                None => app.path().app_local_data_dir().expect("sin carpeta de datos"),
+            };
+            // La ventana se crea aquí para que, en modo portable, sus datos también queden en "datos"
+            let wcfg = app.config().app.windows.iter().find(|w| w.label == "main").cloned().ok_or("falta la ventana principal")?;
+            let mut wb = tauri::WebviewWindowBuilder::from_config(app.handle(), &wcfg)?;
+            if let Some(d) = &portable_dir {
+                wb = wb.data_directory(d.join("webview"));
+            }
+            wb.build()?;
+            let _ = app.asset_protocol_scope().allow_directory(&base, true);
             let img_dir = base.join("img");
             let sess_dir = base.join("sesiones");
             std::fs::create_dir_all(img_dir.join("thumbs"))?;
@@ -632,6 +649,7 @@ fn main() {
                 db: Mutex::new(conn),
                 img_dir,
                 sess_dir,
+                portable: portable_dir.is_some(),
                 paused: AtomicBool::new(false),
                 keep_open: AtomicBool::new(false),
                 writing: AtomicBool::new(false),
@@ -671,7 +689,13 @@ fn main() {
             let update = MenuItem::with_id(app, "update", format!("Buscar actualizaciones  (v{version})"), true, None::<&str>)?;
             let sep = PredefinedMenuItem::separator(app)?;
             let quit = MenuItem::with_id(app, "quit", "Salir", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&open, &record, &pause, &auto, &update, &sep, &quit])?;
+            // La portable no toca el registro: sin "Iniciar con Windows"
+            let mut entries: Vec<&dyn tauri::menu::IsMenuItem<Wry>> = vec![&open, &record, &pause];
+            if portable_dir.is_none() {
+                entries.push(&auto);
+            }
+            entries.extend([&update as &dyn tauri::menu::IsMenuItem<Wry>, &sep, &quit]);
+            let menu = Menu::with_items(app, &entries)?;
             app.manage(PauseItem(pause.clone()));
             app.manage(AutostartItem(auto.clone()));
             app.manage(RecItem(record.clone()));

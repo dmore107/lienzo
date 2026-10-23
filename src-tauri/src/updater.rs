@@ -17,12 +17,16 @@ pub async fn check_update(app: AppHandle) -> Result<Option<UpdateInfo>, String> 
     Ok(up.map(|u| UpdateInfo { version: u.version.clone(), current: u.current_version.clone(), notes: u.body.clone() }))
 }
 
-/// Descarga, verifica la firma e instala. En Windows el instalador cierra Lienzo y lo vuelve a abrir.
+/// Descarga, verifica la firma e instala. Instalado: el instalador cierra Lienzo y lo vuelve a abrir.
+/// Portable: se cambia el ejecutable junto a la carpeta "datos" y Lienzo se reinicia.
 #[tauri::command]
 pub async fn install_update(app: AppHandle) -> Result<(), String> {
     let Some(u) = app.updater().map_err(|e| e.to_string())?.check().await.map_err(|e| e.to_string())? else {
         return Err("Ya tienes la última versión".into());
     };
+    if crate::portable::data_dir().is_some() {
+        return crate::portable::update(&app, &u.version).await;
+    }
     u.download_and_install(|_, _| {}, || {}).await.map_err(|e| e.to_string())?;
     app.restart();
 }

@@ -960,7 +960,7 @@ $('#board').addEventListener('scroll',closeCtx);
     let mig=null; try{mig=localStorage.getItem('lienzo-tablero-v2')}catch(e){}
     if(!mig){items.filter(i=>i.x!=null).forEach(i=>patch(i,{x:null,y:null}));try{localStorage.setItem('lienzo-tablero-v2','1')}catch(e){}}
     if(st.hotkeys&&st.hotkeys.length)$('#hint').textContent=`Ábrelo con ${st.hotkeys.join(' o ')} · `+$('#hint').textContent;
-    if(st.version)$('.brand').title='Lienzo '+st.version;
+    if(st.version)$('.brand').title='Lienzo '+st.version+(st.portable?' · portable':'');
     setTimeout(()=>checkUpdate(false),8000); setInterval(()=>checkUpdate(false),6*H);
   }catch(e){toast('Modo vista previa (sin Tauri)')}
   await loadSystemColors();
