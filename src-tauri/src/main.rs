@@ -3,6 +3,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod db;
+mod rec;
 mod updater;
 mod win;
 
@@ -52,6 +53,7 @@ struct Item {
 struct AppState {
     db: Mutex<Connection>,
     img_dir: PathBuf,
+    sess_dir: PathBuf,
     paused: AtomicBool,
     keep_open: AtomicBool,
     writing: AtomicBool,
@@ -64,6 +66,7 @@ struct AppState {
 
 struct PauseItem(CheckMenuItem<Wry>);
 struct AutostartItem(CheckMenuItem<Wry>);
+struct RecItem(MenuItem<Wry>);
 
 fn now_ms() -> i64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as i64).unwrap_or(0)
@@ -200,6 +203,7 @@ fn purge_old_trash(state: &AppState) {
     for f in images {
         state.remove_image(&f);
     }
+    rec::purge_trash(state, Some(limit));
 }
 
 /// Crea en segundo plano las miniaturas de imágenes guardadas antes de la 0.2.
@@ -489,7 +493,7 @@ fn empty_trash(state: State<AppState>) -> Result<usize, String> {
     for f in images {
         state.remove_image(&f);
     }
-    Ok(n)
+    Ok(n + rec::purge_trash(&state, None))
 }
 
 #[tauri::command]
@@ -588,9 +592,13 @@ fn main() {
         .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, Some(vec![AUTOSTART_ARG])))
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
-                .with_handler(|app, _sc, ev| {
+                .with_handler(|app, sc, ev| {
                     if ev.state() == ShortcutState::Pressed {
-                        toggle_window(app);
+                        if *sc == rec::shortcut() {
+                            rec::toggle(app);
+                        } else {
+                            toggle_window(app);
+                        }
                     }
                 })
                 .build(),
@@ -598,7 +606,9 @@ fn main() {
         .setup(|app| {
             let base = app.path().app_local_data_dir().expect("sin carpeta de datos");
             let img_dir = base.join("img");
+            let sess_dir = base.join("sesiones");
             std::fs::create_dir_all(img_dir.join("thumbs"))?;
+            std::fs::create_dir_all(&sess_dir)?;
             let conn = match db::open(&base) {
                 Ok(c) => c,
                 Err(e) => {
@@ -609,6 +619,7 @@ fn main() {
             app.manage(AppState {
                 db: Mutex::new(conn),
                 img_dir,
+                sess_dir,
                 paused: AtomicBool::new(false),
                 keep_open: AtomicBool::new(false),
                 writing: AtomicBool::new(false),
@@ -618,7 +629,9 @@ fn main() {
                 counter: AtomicU64::new(0),
                 hotkeys: Mutex::new(vec![]),
             });
+            app.manage(rec::Recorder::default());
             purge_old_trash(&app.state::<AppState>());
+            rec::recover(&app.state::<AppState>());
 
             // Atajos globales: Win+V (si Windows lo deja libre) y Alt+V
             let mut ok = vec![];
@@ -631,20 +644,23 @@ fn main() {
                 }
             }
             *app.state::<AppState>().hotkeys.lock().unwrap() = ok.clone();
+            let _ = app.global_shortcut().register(rec::shortcut());
 
             // Bandeja del sistema
             let version = app.package_info().version.to_string();
             let label = format!("Abrir  ({})", ok.first().cloned().unwrap_or_else(|| "sin atajo".into()));
             let open = MenuItem::with_id(app, "open", label, true, None::<&str>)?;
+            let record = MenuItem::with_id(app, "record", "Grabar reunión  (Alt+Shift+R)", true, None::<&str>)?;
             let pause = CheckMenuItem::with_id(app, "pause", "Pausar captura", true, false, None::<&str>)?;
             let auto_on = app.autolaunch().is_enabled().unwrap_or(false);
             let auto = CheckMenuItem::with_id(app, "autostart", "Iniciar con Windows", true, auto_on, None::<&str>)?;
             let update = MenuItem::with_id(app, "update", format!("Buscar actualizaciones  (v{version})"), true, None::<&str>)?;
             let sep = PredefinedMenuItem::separator(app)?;
             let quit = MenuItem::with_id(app, "quit", "Salir", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&open, &pause, &auto, &update, &sep, &quit])?;
+            let menu = Menu::with_items(app, &[&open, &record, &pause, &auto, &update, &sep, &quit])?;
             app.manage(PauseItem(pause.clone()));
             app.manage(AutostartItem(auto.clone()));
+            app.manage(RecItem(record.clone()));
             TrayIconBuilder::with_id("tray")
                 .icon(app.default_window_icon().unwrap().clone())
                 .tooltip(format!("Lienzo {version} — portapapeles"))
@@ -656,12 +672,16 @@ fn main() {
                         let v = !app.state::<AppState>().paused.load(Ordering::SeqCst);
                         set_paused_inner(app, v);
                     }
+                    "record" => rec::toggle(app),
                     "autostart" => toggle_autostart(app),
                     "update" => {
                         show_window(app);
                         let _ = app.emit("check-update", ());
                     }
-                    "quit" => app.exit(0),
+                    "quit" => {
+                        let _ = rec::stop(app);
+                        app.exit(0)
+                    }
                     _ => {}
                 })
                 .on_tray_icon_event(|tray, e| {
@@ -718,6 +738,14 @@ fn main() {
             system_colors,
             set_compact,
             hide_window,
+            rec::rec_start,
+            rec::rec_stop,
+            rec::rec_pause,
+            rec::rec_status,
+            rec::list_sessions,
+            rec::update_session,
+            rec::delete_session,
+            rec::open_session_folder,
             updater::check_update,
             updater::install_update
         ])
