@@ -1,9 +1,9 @@
 name: Compilar
 
-# Revisa que todo compile en cada cambio a main o en un pull request.
+# Revisa que todo compile en cada cambio, en cualquier rama, o en un pull request.
 on:
   push:
-    branches: [main]
+    branches: ["**"]
   pull_request:
 
 jobs:
