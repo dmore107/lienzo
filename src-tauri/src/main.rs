@@ -6,6 +6,7 @@ mod acta;
 mod bitacora;
 mod db;
 mod export;
+mod informe;
 mod portable;
 mod rec;
 mod transcribe;
@@ -816,6 +817,9 @@ fn main() {
             bitacora::set_bitacora,
             bitacora::list_bitacora,
             bitacora::delete_bitacora,
+            informe::get_informe,
+            informe::generate_informe,
+            informe::bitacora_tutorial,
             updater::check_update,
             updater::install_update
         ])

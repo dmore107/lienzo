@@ -658,7 +658,7 @@ $('#openS').onclick=openSearch;
 document.addEventListener('keydown',e=>{
   if(e.target.closest&&e.target.closest('#recPop'))return;
   if($('#bit').classList.contains('open')&&!$('#tset').classList.contains('open')){
-    if(e.key==='Escape'){if(bitView!=null){bitView=null;paintBit()}else closeBit()}
+    if(e.key==='Escape'){if(bitView!=null){bitView=null;paintBit()}else if(bitRepOpen){bitRepOpen=false;paintBit()}else closeBit()}
     else if(bitView!=null&&(e.key==='ArrowLeft'||e.key==='ArrowRight')){e.preventDefault();stepBit(e.key==='ArrowLeft'?-1:1)}
     return;
   }
@@ -969,7 +969,7 @@ $('#tgem').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='gem
 
 /* ================= BITÁCORA ================= */
 /* Lo que hiciste en las apps elegidas: una captura por clic, con el nombre de lo que tocaste */
-let bitOn=false, bitDay=startOfDay(Date.now()), bitRows=[], bitView=null, bitSet=false, bsetup=null;
+let bitOn=false, bitDay=startOfDay(Date.now()), bitRows=[], bitView=null, bitSet=false, bsetup=null, bitRep=null, bitRepOpen=false, bitRepBusy=false;
 const dayEnd=t=>{const d=new Date(t);return new Date(d.getFullYear(),d.getMonth(),d.getDate()+1).getTime()};
 const hms=t=>new Date(t).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
 function paintBitBtn(){document.querySelectorAll('[data-bit]').forEach(b=>{b.classList.toggle('live',bitOn);b.title=bitOn?'Bitácora activa (Alt+Shift+B)':'Bitácora (Alt+Shift+B)'})}
@@ -980,9 +980,11 @@ async function openBit(settings){
   bitSet=!!settings||!(bsetup&&bsetup.apps.length);
   await loadBit();
 }
-function closeBit(){$('#bit').classList.remove('open');bitView=null}
+function closeBit(){$('#bit').classList.remove('open');bitView=null;bitRepOpen=false}
 async function loadBit(){
   try{bitRows=await invoke('list_bitacora',{from:bitDay,to:dayEnd(bitDay)})}catch(e){bitRows=[]}
+  let j=null; try{j=await invoke('get_informe',{day:bitDay})}catch(e){}
+  try{bitRep=j?JSON.parse(j):null}catch(e){bitRep=null}
   paintBit();
 }
 function paintBit(){
@@ -993,9 +995,12 @@ function paintBit(){
   $('#bToggle').classList.toggle('on',bitOn); $('#bSet').classList.toggle('on',bitSet);
   $('#bFoot').hidden=bitSet;
   $('#bCount').textContent=bitRows.length+(bitRows.length===1?' clic registrado':' clics registrados');
-  $('#bDel').hidden=!bitRows.length;
+  $('#bDel').hidden=!bitRows.length||bitRepOpen;
+  $('#bRep').hidden=!bitRows.length; $('#bRep').disabled=bitRepBusy;
+  $('#bRep').textContent=bitRepBusy?'Redactando…':bitRepOpen?(bitRep?'Volver a generar':'Generar informe'):bitRep?'Ver informe':'Informe del día';
   const body=$('#bBody');
   if(bitSet){paintBitSettings();return}
+  if(bitRepOpen){paintReport();return}
   if(bitView!=null&&bitRows[bitView]){paintBitView();return}
   if(!bitRows.length){
     body.innerHTML=`<div class="vempty">${bitOn?'Nada registrado este día.<br>Cada clic en las apps elegidas aparecerá aquí.':'La bitácora está en pausa.<br>Actívala con ▶ o con Alt+Shift+B.'}</div>`;return;
@@ -1003,7 +1008,7 @@ function paintBit(){
   /* Grupos: clics seguidos en la misma app y ventana */
   const groups=[];
   bitRows.forEach((r,k)=>{const g=groups[groups.length-1];if(g&&g.app===r.app&&g.title===r.title)g.k.push(k);else groups.push({app:r.app,title:r.title,k:[k]})});
-  body.innerHTML=groups.map(g=>`<div class="bgrp"><div class="bgh"><b>${new Date(bitRows[g.k[0]].ts).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})}</b> · ${esc(appName(g.app))}${g.title?' · '+esc(g.title):''}</div><div class="bshots">${g.k.map(k=>{
+  body.innerHTML=groups.map(g=>`<div class="bgrp"><div class="bgh"><span class="bght"><b>${new Date(bitRows[g.k[0]].ts).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})}</b> · ${esc(appName(g.app))}${g.title?' · '+esc(g.title):''}</span>${g.k.length>1?`<button class="sact txt" data-tut="${g.k[0]}-${g.k[g.k.length-1]}" title="Convertir estos clics en una guía paso a paso">Tutorial</button>`:''}</div><div class="bshots">${g.k.map(k=>{
     const r=bitRows[k];
     return `<button class="bshot" data-k="${k}"><div class="bimg">${r.image?`<img src="${fileSrc(r.image)}" alt="" loading="lazy" draggable="false">`:''}${r.x!=null?`<span class="bdot" style="left:${r.x*100}%;top:${r.y*100}%"></span>`:''}</div><div class="bmeta"><span>${hms(r.ts)}</span><small>${esc(r.target||'Clic')}</small></div></button>`;
   }).join('')}</div></div>`).join('');
@@ -1044,11 +1049,57 @@ $('#bBody').addEventListener('click',e=>{
   const day=e.target.closest('#bDays button'); if(day){document.querySelectorAll('#bDays button').forEach(b=>b.classList.toggle('on',b===day));moveInd('#bDays',day);return}
   if(e.target.closest('#bSave')){saveBit();return}
   const shot=e.target.closest('.bshot'); if(shot){bitView=+shot.dataset.k;paintBit();return}
+  const tut=e.target.closest('[data-tut]'); if(tut){const [a,z]=tut.dataset.tut.split('-').map(Number),r=tut.getBoundingClientRect();ctxActions={tut:bitRows.slice(a,z+1).map(x=>x.id)};openCtx(r.left,r.bottom+6,'<div class="lbl">Tutorial en Word</div>'+mi('tut:plain','image','Con las capturas')+(gemOk?mi('tut:ai','spell','Redactado con Gemini'):''));return}
+  const at=e.target.closest('[data-at]'); if(at){const k=bitRows.findIndex(r=>{const d=new Date(r.ts);return [d.getHours(),d.getMinutes(),d.getSeconds()].map(two).join(':')>=at.dataset.at});if(k>=0){bitRepOpen=false;bitView=k;paintBit()}return}
   const b=e.target.closest('[data-b]')?.dataset.b;
   if(b==='back'){bitView=null;paintBit()} else if(b==='prev')stepBit(-1); else if(b==='next')stepBit(1);
 });
-$('#bPrev').onclick=()=>{bitDay=startOfDay(bitDay-D/2);bitView=null;loadBit()};
-$('#bNext').onclick=()=>{bitDay=dayEnd(bitDay);bitView=null;loadBit()};
+$('#bPrev').onclick=()=>{bitDay=startOfDay(bitDay-D/2);bitView=null;bitRepOpen=false;loadBit()};
+$('#bNext').onclick=()=>{bitDay=dayEnd(bitDay);bitView=null;bitRepOpen=false;loadBit()};
+
+/* ---- Informe del día (Gemini, solo texto y solo cuando lo pides) ---- */
+function paintReport(){
+  const body=$('#bBody'), A=bitRep;
+  if(bitRepBusy){body.innerHTML='<div class="vempty"><div class="vstate">Gemini está revisando tu día…</div></div>';return}
+  if(!A){
+    body.innerHTML=gemOk
+      ?`<div class="vempty">Gemini puede resumir lo que hiciste este día y señalar acciones que conviene revisar.<small>Se envía solo texto: la hora, la app, la ventana, lo que tocaste y parte del texto que se veía, nunca las capturas. Con la clave gratuita, Google puede usarlo para mejorar sus productos: evítalo si hay información confidencial.</small></div>`
+      :`<div class="vempty">Para el informe conecta tu clave gratuita de Gemini.<br><button class="ghost" data-x="tset">Configurar la clave</button></div>`;
+    return;
+  }
+  const list=(t,items,f)=>`<section><h4>${t}</h4>${items.length?f(items):'<p class="anone">Nada para señalar</p>'}</section>`;
+  body.innerHTML=`<div class="acta brep"><div class="bnav" style="display:flex;align-items:center;gap:8px"><button class="ib sm" data-b="repback" title="Volver (Esc)">${I.left}</button><span class="sp" style="flex:1"></span><button class="ib sm" data-b="repcopy" title="Copiar el informe">${I.copy}</button></div>
+    <section><h4>Resumen</h4><p>${esc(A.resumen||'')}</p></section>
+    ${list('Tu día',arr(A.bloques),x=>x.map(b=>`<div class="bblk"><span>${esc(b.desde)} – ${esc(b.hasta)}</span><p><b>${esc(appName(b.app))}</b> · ${esc(b.actividad)}</p></div>`).join(''))}
+    ${list('Para revisar',arr(A.atencion),x=>x.map(a=>`<div class="atask" data-at="${esc(a.hora)}" title="Ver la captura de ese momento"><span class="vts">${esc(a.hora)}</span><div><p>${esc(a.detalle)}</p></div></div>`).join(''))}
+  </div>`;
+}
+function reportText(){
+  const A=bitRep; if(!A)return '';
+  return ['Bitácora · '+$('#bDay').textContent,'','Resumen',A.resumen||'','','Tu día',...arr(A.bloques).map(b=>`${b.desde}–${b.hasta} · ${appName(b.app)}: ${b.actividad}`),'','Para revisar',...arr(A.atencion).map(a=>`${a.hora} · ${a.detalle}`)].join('\n');
+}
+async function genReport(){
+  if(bitRepBusy)return; bitRepBusy=true; paintBit();
+  const label=new Date(bitDay).toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  try{const j=await invoke('generate_informe',{day:bitDay,to:dayEnd(bitDay),tz:new Date(bitDay).getTimezoneOffset(),label});bitRep=JSON.parse(j);toast('Informe listo')}
+  catch(e){toast(''+e);if(/clave/i.test(''+e))refreshGem()}
+  finally{bitRepBusy=false;paintBit()}
+}
+$('#bRep').onclick=()=>{
+  if(!bitRepOpen){bitRepOpen=true;bitView=null;if(!bitRep&&gemOk)genReport();else paintBit();return}
+  if(gemOk)genReport();else openTset();
+};
+$('#bBody').addEventListener('click',async e=>{
+  if(e.target.closest('[data-x="tset"]')){openTset();return}
+  const b=e.target.closest('[data-b]')?.dataset.b;
+  if(b==='repback'){bitRepOpen=false;paintBit()}
+  if(b==='repcopy'){try{await invoke('copy_text',{text:reportText()});toast('Informe copiado')}catch(err){toast(''+err)}}
+});
+async function makeTutorial(ids,ai){
+  toast(ai?'Gemini está redactando el tutorial…':'Armando el tutorial…');
+  try{await invoke('bitacora_tutorial',{ids,title:'',ai});toast('Tutorial guardado en Documentos\\Lienzo')}
+  catch(e){toast(''+e)}
+}
 $('#bSet').onclick=()=>{bitSet=!bitSet;if(bsetup)bsetup.sel=null;paintBit()};
 $('#bClose').onclick=closeBit;
 $('#bit').addEventListener('click',e=>{if(e.target.id==='bit')closeBit()});
@@ -1156,6 +1207,7 @@ $('#ctx').addEventListener('click',async e=>{
   else if(c==='view')openViewer(it.id);
   else if(c==='acta'){viewing=it.id;vtab='a';openViewer(it.id)}
   else if(c==='exp')exportSess(it,arg);
+  else if(c==='tut')makeTutorial(ctxActions.tut,arg==='ai');
   else if(c==='transcribe')startTranscribe(it);
   else if(c==='tset')openTset();
 });

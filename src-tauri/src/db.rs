@@ -89,7 +89,7 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
         )?;
     }
 
-    // 6: bitácora personal (clics con captura y texto; las imágenes viven en bitacora/).
+    // 6: bitácora personal (clics con captura y texto; las imágenes viven en bitacora/) e informes del día.
     if v < 6 {
         conn.execute_batch(
             "BEGIN;
@@ -98,6 +98,7 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
                target TEXT NOT NULL DEFAULT '', image TEXT NOT NULL DEFAULT '', x REAL, y REAL,
                ocr TEXT NOT NULL DEFAULT '');
              CREATE INDEX IF NOT EXISTS idx_bitacora_ts ON bitacora(ts);
+             CREATE TABLE IF NOT EXISTS informes(day INTEGER PRIMARY KEY, json TEXT NOT NULL, ts INTEGER NOT NULL);
              PRAGMA user_version=6;
              COMMIT;",
         )?;

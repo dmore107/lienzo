@@ -127,6 +127,7 @@ fn purge(state: &AppState, days: i64) {
             .and_then(|mut st| st.query_map(params![limit], |r| r.get::<_, String>(0)).map(|it| it.flatten().collect()))
             .unwrap_or_default();
         let _ = db.execute("DELETE FROM bitacora WHERE ts < ?1", params![limit]);
+        let _ = db.execute("DELETE FROM informes WHERE day < ?1", params![limit]);
         v
     };
     remove_unused(state, images);
@@ -421,6 +422,7 @@ pub fn delete_bitacora(state: State<AppState>, from: i64, to: i64) -> Result<usi
             .and_then(|mut st| st.query_map(params![from, to], |r| r.get::<_, String>(0)).map(|it| it.flatten().collect()))
             .map_err(|e| e.to_string())?;
         let n = db.execute("DELETE FROM bitacora WHERE ts>=?1 AND ts<?2", params![from, to]).map_err(|e| e.to_string())?;
+        let _ = db.execute("DELETE FROM informes WHERE day>=?1 AND day<?2", params![from, to]);
         (images, n)
     };
     remove_unused(&state, images);

@@ -184,23 +184,33 @@ pub fn export_session(app: AppHandle, id: String, format: String, when: String) 
     }
     let b = blocks(&kind, &title, &when, duration_ms, &acta, tr);
 
+    let what = if kind == "capacitacion" { "Capacitación" } else { "Reunión" };
+    let ext = if format == "docx" { "docx" } else { "md" };
+    let path = out_path(&app, &title, what, ext)?;
+    if ext == "docx" {
+        docx(&b, &path)?;
+    } else {
+        std::fs::write(&path, markdown(&b)).map_err(|e| e.to_string())?;
+    }
+    reveal(&path);
+    Ok(path.to_string_lossy().into_owned())
+}
+
+/// Ruta libre en Documentos\Lienzo: no sobrescribe, si ya existe agrega (2), (3)…
+pub(crate) fn out_path(app: &AppHandle, title: &str, fallback: &str, ext: &str) -> Result<PathBuf, String> {
     let dir = app.path().document_dir().map_err(|e| e.to_string())?.join("Lienzo");
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    let what = if kind == "capacitacion" { "Capacitación" } else { "Reunión" };
-    let base = file_name(&title, what);
-    let ext = if format == "docx" { "docx" } else { "md" };
-    // No sobrescribe: si ya existe, agrega (2), (3)…
+    let base = file_name(title, fallback);
     let mut path = dir.join(format!("{base}.{ext}"));
     let mut n = 2;
     while path.exists() {
         path = dir.join(format!("{base} ({n}).{ext}"));
         n += 1;
     }
-    if ext == "docx" {
-        docx(&b, &path)?;
-    } else {
-        std::fs::write(&path, markdown(&b)).map_err(|e| e.to_string())?;
-    }
+    Ok(path)
+}
+
+/// Abre el Explorador con el archivo seleccionado.
+pub(crate) fn reveal(path: &std::path::Path) {
     let _ = std::process::Command::new("explorer").arg(format!("/select,{}", path.display())).spawn();
-    Ok(path.to_string_lossy().into_owned())
 }

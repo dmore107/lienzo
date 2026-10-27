@@ -469,3 +469,11 @@ body.compact .meters i,body.compact .meters .mt:not(.mbtn){display:none}
 #bit .tbody input.bin{border:1px solid var(--line);background:var(--field);border-radius:11px;padding:7px 10px;font:inherit;font-size:13px;color:var(--ink);outline:0;user-select:text}
 #bit .tbody input.bin:focus{border-color:var(--ink3)}
 .bsave{display:flex;justify-content:flex-end;margin-top:6px}
+.bgh{display:flex;align-items:center;gap:6px}
+.bgh .bght{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.bgh .sact{flex:none}
+.brep .atask{cursor:pointer}
+.brep .atask:hover{background:var(--hover)}
+.brep .bblk{display:flex;gap:10px;padding:4px 0}
+.brep .bblk span{flex:none;font-size:12px;color:var(--ink3);font-variant-numeric:tabular-nums;min-width:88px;padding-top:2px}
+.brep .bblk b{font-weight:600}

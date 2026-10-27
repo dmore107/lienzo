@@ -166,14 +166,20 @@ fn prompt(kind: &str, title: &str, transcript: &str) -> String {
     )
 }
 
-/// Pide el acta a Gemini. Devuelve el JSON tal como llegó (ya validado como JSON).
-async fn ask(key: &str, kind: &str, title: &str, transcript: &str) -> Result<String, String> {
+/// Pide a Gemini una respuesta JSON con el esquema dado (también la usan el informe y el tutorial).
+/// Devuelve el JSON tal como llegó, ya validado.
+pub(crate) async fn gemini(prompt: String, schema: Value) -> Result<String, String> {
+    let key = cred::get().ok_or("Primero configura tu clave de Gemini")?;
+    ask(&key, prompt, schema).await
+}
+
+async fn ask(key: &str, prompt: String, schema: Value) -> Result<String, String> {
     let body = json!({
-        "contents": [{ "role": "user", "parts": [{ "text": prompt(kind, title, transcript) }] }],
+        "contents": [{ "role": "user", "parts": [{ "text": prompt }] }],
         "generationConfig": {
             "temperature": 0.2,
             "responseMimeType": "application/json",
-            "responseSchema": schema(kind),
+            "responseSchema": schema,
         },
     });
     let body = serde_json::to_vec(&body).map_err(|e| e.to_string())?;
@@ -208,9 +214,9 @@ async fn ask(key: &str, kind: &str, title: &str, transcript: &str) -> Result<Str
             .unwrap_or_default();
         if text.is_empty() {
             let why = v["candidates"][0]["finishReason"].as_str().or(v["promptFeedback"]["blockReason"].as_str()).unwrap_or("sin respuesta");
-            return Err(format!("Gemini no devolvió el acta ({why})"));
+            return Err(format!("Gemini no devolvió una respuesta ({why})"));
         }
-        let acta: Value = serde_json::from_str(&text).map_err(|_| "Gemini devolvió un acta incompleta; intenta de nuevo".to_string())?;
+        let acta: Value = serde_json::from_str(&text).map_err(|_| "Gemini devolvió una respuesta incompleta; intenta de nuevo".to_string())?;
         return serde_json::to_string(&acta).map_err(|e| e.to_string());
     }
     Err("Ningún modelo de Gemini está disponible".into())
@@ -230,7 +236,7 @@ pub async fn generate_acta(app: AppHandle, id: String) -> Result<String, String>
     if status != "transcrita" || transcript.trim().is_empty() {
         return Err("Primero transcribe la grabación".into());
     }
-    let acta = ask(&key, &kind, &title, &transcript).await?;
+    let acta = ask(&key, prompt(&kind, &title, &transcript), schema(&kind)).await?;
     {
         let state = app.state::<AppState>();
         let db = state.db.lock().map_err(|e| e.to_string())?;
