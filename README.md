@@ -52,21 +52,41 @@ Lienzo es portable cuando encuentra una carpeta `datos` junto a su ejecutable. S
 | Grabar | Ícono del micrófono arriba: eliges Reunión o Capacitación y un título opcional. Siempre graba tu micrófono y el audio del PC |
 | Grabar al instante | **Alt+Shift+R** o Bandeja → **Grabar reunión** (micrófono + audio del PC). El mismo atajo detiene |
 | Pausar / detener | Barra roja sobre el tablero, con el tiempo y el nivel de cada fuente |
+| Silenciar tu micrófono | Clic en el ícono del micrófono de la barra roja: solo se graba el audio del PC hasta que lo vuelvas a activar |
 | Transcribir | Automático al terminar de grabar (o **Transcribir** en la tarjeta). Todo se procesa en tu equipo |
 | Leer y escuchar | Doble clic en la tarjeta: transcripción con el audio; clic en una hora para escuchar ese momento |
 | Copiar la transcripción | En el visor, botón de copiar |
+| Acta | En el visor, pestaña **Acta** → **Generar acta**. Reunión: resumen, decisiones, tareas con responsable y temas con su minuto. Capacitación: conceptos, pasos y temas |
+| Exportar | En el visor, botón de exportar → Word o Markdown (acta + transcripción), en `Documentos\Lienzo` |
 | Modelo e idioma | Clic derecho en el tablero → **Ajustes de transcripción** (Rápido 57 MB · Equilibrado 181 MB · Preciso 547 MB) |
 | Ver el audio | Clic derecho en la tarjeta → **Abrir la carpeta del audio** |
 
-Se graban por separado tu micrófono (canal izquierdo) y lo que suena en el PC (canal derecho: Teams, Zoom, Meet, videos), en un WAV de 16 kHz (unos 230 MB por hora). Si Lienzo se cierra a mitad de una grabación, el audio se conserva hasta los últimos segundos. La transcripción marca qué dijiste **tú** y qué dijeron los **participantes** según el canal, y queda también en `transcripcion.txt` junto al audio. El modelo se descarga una sola vez desde Hugging Face y se verifica su huella SHA-256. El acta con resumen, decisiones y tareas llega en la próxima versión.
+Se graban por separado tu micrófono (canal izquierdo) y lo que suena en el PC (canal derecho: Teams, Zoom, Meet, videos), en un WAV de 16 kHz (unos 230 MB por hora). Si Lienzo se cierra a mitad de una grabación, el audio se conserva hasta los últimos segundos. La transcripción marca qué dijiste **tú** y qué dijeron los **participantes** según el canal, y queda también en `transcripcion.txt` junto al audio. El modelo se descarga una sola vez desde Hugging Face y se verifica su huella SHA-256.
 
 Avisa a los participantes que estás grabando. Si el micrófono no se oye, revisa en Configuración → Privacidad y seguridad → Micrófono que **las aplicaciones de escritorio** tengan acceso.
+
+El acta usa Google Gemini con tu propia clave (gratis en aistudio.google.com/apikey; se pega en **Ajustes de transcripción** y queda en el Administrador de credenciales de Windows). Solo se envía el texto de la transcripción, nunca el audio, y solo cuando pulsas **Generar acta**. Con la clave gratuita Google puede usar ese texto para mejorar sus productos: evítalo en reuniones confidenciales.
+
+## Bitácora
+
+Para saber qué hiciste y encontrar un error: registra tus clics en las apps que elijas, con una captura de esa ventana, el nombre de lo que tocaste y el texto que se veía (OCR de Windows, sin internet).
+
+| Acción | Cómo |
+|---|---|
+| Configurar | Ícono del reloj arriba → ajustes: eliges las apps, opcionalmente un texto que deba tener el título de la ventana (p. ej. el nombre de una web) y cuántos días guardar (7, 15 o 30) |
+| Activar / pausar | **Alt+Shift+B**, el botón ▶/‖ de la bitácora o Bandeja → **Bitácora**. Con la bitácora activa, el reloj muestra un punto rojo |
+| Revisar un día | Ícono del reloj: clics agrupados por app y ventana; clic en una captura para verla en grande con el punto donde hiciste clic (← → para avanzar) |
+| Informe del día | Botón **Informe del día**: Gemini resume tu jornada y señala acciones para revisar (eliminaciones, envíos, errores en pantalla). Clic en una hora para ver esa captura |
+| Tutorial | Botón **Tutorial** en un grupo de clics → Word paso a paso con las capturas, tal cual o redactado por Gemini |
+| Borrar | **Borrar este día**; además se borra sola pasado el plazo elegido |
+
+No registra lo que escribes, no captura campos de contraseña ni gestores de contraseñas, y no captura a Lienzo. Al informe y al tutorial redactado solo va texto, nunca las capturas, y solo cuando lo pides.
 
 ## Dónde quedan los datos
 
 Solo en el equipo donde lo ejecutas:
-`%LOCALAPPDATA%\com.dani.lienzo\` (base `lienzo.db`, carpeta `img` y carpeta `sesiones` con el audio de cada grabación).
-Si instalas Lienzo en otro equipo, arranca vacío. Tu contenido nunca sale del equipo; lo único que Lienzo consulta en internet es si hay una versión nueva en GitHub.
+`%LOCALAPPDATA%\com.dani.lienzo\` (base `lienzo.db`, carpeta `img`, carpeta `sesiones` con el audio de cada grabación y carpeta `bitacora` con las capturas).
+Si instalas Lienzo en otro equipo, arranca vacío. Lienzo consulta en internet si hay una versión nueva en GitHub, descarga los modelos de transcripción y, solo cuando lo pides, envía texto a Gemini para el acta, el informe del día o un tutorial redactado.
 
 El contenido que los gestores de contraseñas marcan como privado (KeePass, 1Password, Bitwarden…) no se guarda.
 
@@ -91,6 +111,10 @@ npm run build    # genera el instalador en src-tauri/target/release/bundle/nsis
 - `src-tauri/src/win.rs` — API de Windows: portapapeles, foco, pegado, app de origen
 - `src-tauri/src/rec.rs` — grabación de reuniones y capacitaciones (micrófono + audio del PC)
 - `src-tauri/src/transcribe.rs` — transcripción local con whisper.cpp, modelos y cola de trabajo
+- `src-tauri/src/acta.rs` — acta con Gemini y la clave en el Administrador de credenciales
+- `src-tauri/src/export.rs` — exportar a Word y Markdown
+- `src-tauri/src/bitacora.rs` — bitácora: clics, capturas, UI Automation y OCR de Windows
+- `src-tauri/src/informe.rs` — informe del día y tutoriales en Word
 - `src-tauri/src/updater.rs` — actualizaciones firmadas desde GitHub Releases
 
 ## Publicar una versión
