@@ -23,7 +23,7 @@ use crate::{now_ms, AppState, Patch, RecItem};
 
 /// Frecuencia que usa Whisper: grabar a 16 kHz evita convertir después.
 pub const RATE: u32 = 16_000;
-const SCOLS: &str = "id,kind,title,ts,ended_at,duration_ms,status,deleted_at,x,y,tone,transcript,error";
+const SCOLS: &str = "id,kind,title,ts,ended_at,duration_ms,status,deleted_at,x,y,tone,transcript,error,acta";
 const KINDS: [&str; 2] = ["reunion", "capacitacion"];
 
 pub fn shortcut() -> Shortcut {
@@ -48,6 +48,7 @@ pub struct Session {
     tone: String,
     transcript: String,
     error: String,
+    acta: String,
     audio_path: String,
 }
 
@@ -72,6 +73,7 @@ fn row_to_session(state: &AppState, r: &rusqlite::Row) -> rusqlite::Result<Sessi
         tone: r.get(10)?,
         transcript: r.get(11)?,
         error: r.get(12)?,
+        acta: r.get(13)?,
     })
 }
 
@@ -214,6 +216,7 @@ pub struct RecState {
     kind: String,
     title: String,
     paused: bool,
+    muted: bool,
     elapsed_ms: u64,
     mic: bool,
     system: bool,
@@ -236,6 +239,7 @@ struct Active {
     system: bool,
     stop: Arc<AtomicBool>,
     paused: Arc<AtomicBool>,
+    muted: Arc<AtomicBool>,
     elapsed: Arc<AtomicU64>,
     handle: thread::JoinHandle<Result<u64, String>>,
 }
@@ -253,6 +257,7 @@ fn current(app: &AppHandle) -> RecState {
             kind: a.kind.clone(),
             title: a.title.clone(),
             paused: a.paused.load(Ordering::SeqCst),
+            muted: a.muted.load(Ordering::SeqCst),
             elapsed_ms: a.elapsed.load(Ordering::SeqCst),
             mic: a.mic,
             system: a.system,
@@ -284,6 +289,17 @@ pub fn rec_pause(app: AppHandle, paused: bool) {
     if let Ok(g) = app.state::<Recorder>().0.lock() {
         if let Some(a) = g.as_ref() {
             a.paused.store(paused, Ordering::SeqCst);
+        }
+    }
+    announce(&app);
+}
+
+/// Silencia tu micrófono sin detener la grabación: ese tramo queda en silencio y solo se oye el PC.
+#[tauri::command]
+pub fn rec_mute(app: AppHandle, muted: bool) {
+    if let Ok(g) = app.state::<Recorder>().0.lock() {
+        if let Some(a) = g.as_ref() {
+            a.muted.store(muted, Ordering::SeqCst);
         }
     }
     announce(&app);
@@ -329,13 +345,15 @@ pub fn start(app: &AppHandle, kind: String, title: String, mic: bool, system: bo
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let stop = Arc::new(AtomicBool::new(false));
     let paused = Arc::new(AtomicBool::new(false));
+    let muted = Arc::new(AtomicBool::new(false));
     let elapsed = Arc::new(AtomicU64::new(0));
     let (ready_tx, ready_rx) = mpsc::channel();
     let handle = {
-        let (app, wav, stop, paused, elapsed) = (app.clone(), dir.join("audio.wav"), stop.clone(), paused.clone(), elapsed.clone());
+        let (app, wav, stop, paused, muted, elapsed) =
+            (app.clone(), dir.join("audio.wav"), stop.clone(), paused.clone(), muted.clone(), elapsed.clone());
         thread::Builder::new()
             .name("grabacion".into())
-            .spawn(move || record(app, wav, mic, system, stop, paused, elapsed, ready_tx))
+            .spawn(move || record(app, wav, mic, system, stop, paused, muted, elapsed, ready_tx))
             .map_err(|e| e.to_string())?
     };
     // Espera a que los dispositivos abran para avisar de inmediato si falta el micrófono, etc.
@@ -361,7 +379,7 @@ pub fn start(app: &AppHandle, kind: String, title: String, mic: bool, system: bo
         )
         .map_err(|e| e.to_string())?;
     }
-    *slot = Some(Active { id: id.clone(), kind, title, mic, system, stop, paused, elapsed, handle });
+    *slot = Some(Active { id: id.clone(), kind, title, mic, system, stop, paused, muted, elapsed, handle });
     drop(slot);
 
     announce(app);
@@ -452,7 +470,8 @@ impl Resampler {
 }
 
 /// Abre un dispositivo. Con `loopback`, `dev` es una salida y se graba lo que suena en el PC.
-fn open_stream(dev: &cpal::Device, loopback: bool, ch: Arc<Channel>, paused: Arc<AtomicBool>) -> Result<cpal::Stream, String> {
+/// Con `muted` activo se sigue leyendo el dispositivo pero se guarda silencio, para no perder el ritmo.
+fn open_stream(dev: &cpal::Device, loopback: bool, ch: Arc<Channel>, paused: Arc<AtomicBool>, muted: Arc<AtomicBool>) -> Result<cpal::Stream, String> {
     let cfg = if loopback { dev.default_output_config() } else { dev.default_input_config() }.map_err(|e| e.to_string())?;
     let channels = cfg.channels().max(1) as usize;
     let fmt = cfg.sample_format();
@@ -461,7 +480,7 @@ fn open_stream(dev: &cpal::Device, loopback: bool, ch: Arc<Channel>, paused: Arc
 
     macro_rules! build {
         ($t:ty, $conv:expr) => {{
-            let (ch, paused) = (ch.clone(), paused.clone());
+            let (ch, paused, muted) = (ch.clone(), paused.clone(), muted.clone());
             let (mut mono, mut out) = (Vec::<f32>::new(), Vec::<f32>::new());
             dev.build_input_stream(
                 &config,
@@ -471,8 +490,9 @@ fn open_stream(dev: &cpal::Device, loopback: bool, ch: Arc<Channel>, paused: Arc
                     }
                     mono.clear();
                     let mut peak = 0f32;
+                    let silent = muted.load(Ordering::Relaxed);
                     for frame in data.chunks(channels) {
-                        let s = frame.iter().map(|&x| $conv(x)).sum::<f32>() / channels as f32;
+                        let s = if silent { 0.0 } else { frame.iter().map(|&x| $conv(x)).sum::<f32>() / channels as f32 };
                         peak = peak.max(s.abs());
                         mono.push(s);
                     }
@@ -517,6 +537,7 @@ fn record(
     system: bool,
     stop: Arc<AtomicBool>,
     paused: Arc<AtomicBool>,
+    muted: Arc<AtomicBool>,
     elapsed: Arc<AtomicU64>,
     ready: mpsc::Sender<Result<(), String>>,
 ) -> Result<u64, String> {
@@ -529,14 +550,14 @@ fn record(
     let mut streams = Vec::new();
     if mic {
         let Some(d) = host.default_input_device() else { return fail("No encontré un micrófono".into()) };
-        match open_stream(&d, false, mic_ch.clone(), paused.clone()) {
+        match open_stream(&d, false, mic_ch.clone(), paused.clone(), muted) {
             Ok(s) => streams.push(s),
             Err(e) => return fail(format!("No se pudo abrir el micrófono: {e}. Revisa en Configuración → Privacidad → Micrófono que las aplicaciones de escritorio tengan acceso.")),
         }
     }
     if system {
         let Some(d) = host.default_output_device() else { return fail("No encontré la salida de audio del PC".into()) };
-        match open_stream(&d, true, sys_ch.clone(), paused.clone()) {
+        match open_stream(&d, true, sys_ch.clone(), paused.clone(), Arc::new(AtomicBool::new(false))) {
             Ok(s) => streams.push(s),
             Err(e) => return fail(format!("No se pudo capturar el audio del PC: {e}")),
         }

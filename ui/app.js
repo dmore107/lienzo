@@ -30,6 +30,7 @@ const I={
   check:'<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg>',
   sliders:'<svg viewBox="0 0 24 24"><path d="M5 7h9M18 7h1M5 17h3M12 17h7"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>',
   mic:'<svg viewBox="0 0 24 24"><rect x="9" y="3.5" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v3.5"/></svg>',
+  micOff:'<svg viewBox="0 0 24 24"><path d="M15 10V6.5a3 3 0 0 0-5.6-1.5M9 9v2.5a3 3 0 0 0 4.6 2.5M6 11a6 6 0 0 0 9.6 4.8M18 11a6 6 0 0 1-.5 2.4M12 17v3.5M4 4l16 16"/></svg>',
   session:'<svg viewBox="0 0 24 24"><rect x="9" y="3.5" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v3.5"/></svg>',
   stop:'<svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/></svg>',
   folder:'<svg viewBox="0 0 24 24"><path d="M4 7.5A1.5 1.5 0 0 1 5.5 6H10l2 2h6.5A1.5 1.5 0 0 1 20 9.5v8a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z"/></svg>',
@@ -56,7 +57,7 @@ function fromDb(r){return{id:r.id,type:r.kind,content:r.content,src:r.kind==='im
 /* Grabaciones: se muestran en el tablero como una tarjeta más; el título vive en content */
 const KIND={reunion:'Reunión',capacitacion:'Capacitación'};
 const SSTATUS={grabando:'Grabando',grabada:'Audio guardado',en_cola:'En cola',transcribiendo:'Transcribiendo',transcrita:'Transcrita',error:'Error al grabar'};
-function fromSession(r){return{id:r.id,type:'session',skind:r.kind,content:r.title||'',ts:r.ts,durationMs:r.durationMs||0,status:r.status,audioPath:r.audioPath,transcript:r.transcript||'',error:r.error||'',progress:0,deletedAt:r.deletedAt??null,x:r.x??null,y:r.y??null,tone:r.tone||'',pinned:false,note:'',source:''}}
+function fromSession(r){return{id:r.id,type:'session',skind:r.kind,content:r.title||'',ts:r.ts,durationMs:r.durationMs||0,status:r.status,audioPath:r.audioPath,transcript:r.transcript||'',acta:r.acta||'',error:r.error||'',progress:0,deletedAt:r.deletedAt??null,x:r.x??null,y:r.y??null,tone:r.tone||'',pinned:false,note:'',source:''}}
 const sessTitle=i=>i.content||(KIND[i.skind]||'Grabación')+' sin título';
 const two=n=>String(n).padStart(2,'0');
 const fmtDur=ms=>{const t=Math.round(ms/1000),h=Math.floor(t/3600),m=Math.floor(t/60)%60,x=t%60;return h?h+':'+two(m)+':'+two(x):two(m)+':'+two(x)};
@@ -211,7 +212,7 @@ function sessionInfo(i){
   if(st==='grabando')return '<span class="sbadge"><span class="rdot"></span>Grabando</span>';
   if(st==='transcribiendo')return `<span class="tbar"><i style="transform:scaleX(${(i.progress||0)/100})"></i></span><span class="tpct">${i.progress||0}%</span><button class="sact" data-a="tcancel" title="Cancelar">${I.x}</button>`;
   if(st==='en_cola')return `<span class="sbadge">En cola</span><button class="sact" data-a="tcancel" title="Quitar de la cola">${I.x}</button>`;
-  if(st==='transcrita')return `<span class="sbadge">Transcrita</span><span>${fmtDur(i.durationMs)}</span>`;
+  if(st==='transcrita')return `<span class="sbadge">${i.acta?'Con acta':'Transcrita'}</span><span>${fmtDur(i.durationMs)}</span>`;
   if(st==='error')return '<span class="sbadge st-error">Error al grabar</span>';
   return (i.error?`<span class="sbadge st-error" title="${esc(i.error)}">No se transcribió</span>`:`<span>${fmtDur(i.durationMs)}</span>`)
     +`<button class="sact txt" data-a="transcribe">${i.error?'Reintentar':'Transcribir'}</button>`;
@@ -607,7 +608,7 @@ function snippet(text,ranges){
   return (a>0?'…':'')+markup(t,ranges,a,b)+(b<t.length?'…':'');
 }
 let sTerms=[];
-function searchText(i){return i.type==='image'?(i.note||''):isSess(i)?(i.content+(i.transcript?' — '+i.transcript:'')):i.content}
+function searchText(i){return i.type==='image'?(i.note||''):isSess(i)?(i.content+(i.transcript?' — '+i.transcript:'')+(i.acta?' — '+actaText(i):'')):i.content}
 function runSearch(){
   const q=$('#q').value.trim(); sTerms=q?terms(q):[];
   const hits=[];
@@ -724,6 +725,8 @@ document.addEventListener('click',e=>{
   if(!e.target.closest('#recPop'))closeRecPop();
 });
 $('#recPause').onclick=()=>invoke('rec_pause',{paused:!rec.paused});
+/* El mismo indicador de tu voz sirve para silenciarla: solo se graba el audio del PC */
+$('#recMute').onclick=async()=>{const m=!rec.muted;try{await invoke('rec_mute',{muted:m});toast(m?'Micrófono silenciado: solo se graba el PC':'Micrófono activo')}catch(e){toast(''+e)}};
 $('#recStop').onclick=async()=>{
   try{
     const s=await invoke('rec_stop'); if(!s)return;
@@ -742,6 +745,9 @@ function paintRec(){
   $('#recPause').innerHTML=rec.paused?I.play:I.pause; $('#recPause').title=rec.paused?'Reanudar':'Pausar';
   $('#recTime').textContent=fmtDur(rec.elapsedMs||0);
   $('#recMeterMic').closest('.mt').hidden=!rec.mic; $('#recMeterSys').closest('.mt').hidden=!rec.system;
+  const mb=$('#recMute'), mu=!!rec.muted;
+  mb.classList.toggle('off',mu); mb.querySelector('.mic-ic').innerHTML=mu?I.micOff:I.mic;
+  mb.title=mu?'Micrófono silenciado · clic para activarlo':'Silenciar tu micrófono';
 }
 /* Medidor con caída suave: el pico llega 10 veces por segundo */
 const lvl={mic:0,sys:0};
@@ -775,7 +781,7 @@ listen('transcribe-progress',ev=>{
 });
 
 /* ---- Ajustes: modelo, idioma y transcripción automática ---- */
-function openTset(){$('#tset').classList.add('open');loadSetup().then(paintTset)}
+function openTset(){$('#tset').classList.add('open');loadSetup().then(paintTset);paintGem()}
 function closeTset(){$('#tset').classList.remove('open')}
 function paintTset(){
   const su=tsetup; if(!su)return;
@@ -814,17 +820,27 @@ $('#tclose').onclick=closeTset;
 $('#tset').addEventListener('click',e=>{if(e.target.id==='tset')closeTset()});
 
 /* ---- Visor: transcripción con el audio ---- */
-let viewing=null, vblocks=[];
+let viewing=null, vblocks=[], vtab='t', gemOk=false, actaBusy=null;
 const clock=ms=>fmtDur(ms);
 async function openViewer(id){
   const it=byId(id); if(!it)return;
+  if(viewing!==id)vtab='t';
   viewing=id; $('#viewer').classList.add('open');
   $('#vtitle').textContent=sessTitle(it);
   $('#vmeta').textContent='· '+(KIND[it.skind]||'Grabación')+' · '+fmtShort(it.ts)+(it.durationMs?' · '+fmtDur(it.durationMs):'');
   const au=$('#vaudio'); au.hidden=it.status==='grabando'||!it.audioPath; if(!au.hidden&&au.dataset.id!==id){au.src=fileSrc(it.audioPath);au.dataset.id=id}
-  $('#vredo').hidden=!(it.status==='transcrita'||it.status==='grabada');
-  $('#vredo').textContent=it.status==='transcrita'?'Volver a transcribir':'Transcribir';
-  $('#vcopy').disabled=!it.transcript;
+  const done=it.status==='transcrita'; if(!done)vtab='t';
+  $('#vtabs').hidden=!done;
+  document.querySelectorAll('#vtabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===vtab));
+  moveInd('#vtabs',document.querySelector(`#vtabs button[data-v="${vtab}"]`));
+  if(vtab==='a'){
+    $('#vredo').hidden=!gemOk||actaBusy===id; $('#vredo').textContent=it.acta?'Volver a generar':'Generar acta';
+    $('#vcopy').disabled=!it.acta; $('#vcopy').title='Copiar el acta';
+    paintActa(it); return;
+  }
+  $('#vredo').hidden=!(done||it.status==='grabada');
+  $('#vredo').textContent=done?'Volver a transcribir':'Transcribir';
+  $('#vcopy').disabled=!it.transcript; $('#vcopy').title='Copiar la transcripción';
   await paintViewer(it);
 }
 function closeViewer(){$('#viewer').classList.remove('open');const au=$('#vaudio');au.pause();viewing=null}
@@ -855,10 +871,83 @@ $('#vaudio').addEventListener('timeupdate',e=>{
 });
 $('#vclose').onclick=closeViewer;
 $('#viewer').addEventListener('click',e=>{if(e.target.id==='viewer')closeViewer()});
-$('#vcopy').onclick=async()=>{const it=byId(viewing);if(!it||!it.transcript)return;try{await invoke('copy_text',{text:it.transcript});toast('Transcripción copiada')}catch(e){toast(''+e)}};
+$('#vcopy').onclick=async()=>{
+  const it=byId(viewing), a=vtab==='a', text=it&&(a?actaText(it):it.transcript); if(!text)return;
+  try{await invoke('copy_text',{text});toast(a?'Acta copiada':'Transcripción copiada')}catch(e){toast(''+e)}
+};
 $('#vfolder').onclick=()=>{const it=byId(viewing);if(it)openFolder(it)};
 $('#vset').onclick=openTset;
-$('#vredo').onclick=()=>{const it=byId(viewing);if(it)startTranscribe(it)};
+$('#vredo').onclick=()=>{const it=byId(viewing);if(!it)return;if(vtab==='a')genActa(it);else startTranscribe(it)};
+$('#vtabs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||b.dataset.v===vtab)return;vtab=b.dataset.v;openViewer(viewing)});
+
+/* ---- Acta con Gemini ---- */
+const parseActa=it=>{try{return it.acta?JSON.parse(it.acta):null}catch(e){return null}};
+const minToMs=m=>{const p=String(m||'').trim().split(':').map(Number);if(p.length<2||p.some(isNaN))return null;return p.reduce((a,b)=>a*60+b,0)*1000};
+const arr=v=>Array.isArray(v)?v:[];
+function actaText(it){
+  const A=parseActa(it); if(!A)return '';
+  const out=[sessTitle(it),fmtShort(it.ts),'','Resumen',A.resumen||''];
+  const sec=(t,lines)=>{if(lines.length)out.push('',t,...lines)};
+  const who=t=>[t.responsable,t.fecha].filter(Boolean).join(' · ');
+  sec('Decisiones',arr(A.decisiones).map(d=>'- '+d));
+  sec('Tareas',arr(A.tareas).map(t=>'- [ ] '+t.tarea+(who(t)?' ('+who(t)+')':'')));
+  sec('Conceptos',arr(A.conceptos).map(c=>'- '+c.concepto+': '+c.explicacion));
+  sec('Pasos',arr(A.pasos).map((p,k)=>(k+1)+'. '+p));
+  sec('Temas',arr(A.temas).map(t=>'['+t.minuto+'] '+t.tema));
+  return out.join('\n');
+}
+function paintActa(it){
+  const body=$('#vbody');
+  if(actaBusy===it.id){body.innerHTML='<div class="vempty"><div class="vstate">Gemini está redactando el acta…</div></div>';return}
+  const A=parseActa(it);
+  if(!A){
+    body.innerHTML=gemOk
+      ?`<div class="vempty">Gemini puede resumir esta ${esc((KIND[it.skind]||'grabación').toLowerCase())} en ${it.skind==='capacitacion'?'conceptos, pasos y temas':'decisiones, tareas con responsable y temas'}.<small>Se envía solo el texto de la transcripción. Con la clave gratuita, Google puede usarlo para mejorar sus productos: evítalo en reuniones confidenciales.</small></div>`
+      :`<div class="vempty">Para crear el acta conecta tu clave gratuita de Gemini.<br><button class="ghost" data-x="tset">Configurar la clave</button></div>`;
+    return;
+  }
+  const list=(t,items,f)=>`<section><h4>${t}</h4>${items.length?f(items):'<p class="anone">Nada registrado</p>'}</section>`;
+  const ts=m=>{const ms=minToMs(m);return ms==null?'':`<button class="vts" data-t="${ms}">${esc(m)}</button>`};
+  let h=`<section><h4>Resumen</h4><p>${esc(A.resumen||'')}</p></section>`;
+  if(it.skind==='capacitacion'){
+    h+=list('Conceptos',arr(A.conceptos),x=>x.map(c=>`<div class="aconc"><b>${esc(c.concepto)}</b><small>${esc(c.explicacion)}</small></div>`).join(''));
+    h+=list('Pasos',arr(A.pasos),x=>`<ol>${x.map(p=>`<li>${esc(p)}</li>`).join('')}</ol>`);
+  }else{
+    h+=list('Decisiones',arr(A.decisiones),x=>`<ul>${x.map(d=>`<li>${esc(d)}</li>`).join('')}</ul>`);
+    h+=list('Tareas',arr(A.tareas),x=>x.map(t=>{const m=[t.responsable,t.fecha].filter(Boolean).map(esc).join(' · ');return `<div class="atask"><span class="abox"></span><div><p>${esc(t.tarea)}</p>${m?`<small>${m}</small>`:''}</div></div>`}).join(''));
+  }
+  h+=list('Temas',arr(A.temas),x=>x.map(t=>`<div class="atema">${ts(t.minuto)}<p>${esc(t.tema)}</p></div>`).join(''));
+  body.innerHTML=`<div class="acta">${h}</div>`;
+}
+async function genActa(it){
+  if(actaBusy)return;
+  actaBusy=it.id; if(viewing===it.id)openViewer(it.id);
+  try{const a=await invoke('generate_acta',{id:it.id});it.acta=a;delete it._f;toast('Acta lista')}
+  catch(e){toast(''+e);if(/clave/i.test(''+e))refreshGem()}
+  finally{actaBusy=null;if(viewing===it.id)openViewer(it.id);refreshStill()}
+}
+$('#vbody').addEventListener('click',e=>{if(e.target.closest('[data-x="tset"]'))openTset()});
+
+/* ---- Clave de Gemini (se guarda en el Administrador de credenciales de Windows) ---- */
+async function refreshGem(){try{gemOk=await invoke('gemini_status')}catch(e){gemOk=false}paintGem();if(viewing)openViewer(viewing)}
+function paintGem(){
+  const box=$('#tgem'); if(!box)return;
+  box.innerHTML=gemOk
+    ?`<div class="tm on"><div class="tmi"><b>Clave conectada</b><small>Guardada en el Administrador de credenciales de Windows</small></div><div class="tma"><button class="sact" data-g="delete" title="Quitar la clave">${I.trash}</button></div></div>`
+    :`<div class="gkey"><input id="gemKey" type="password" placeholder="Pega tu clave de Gemini" autocomplete="off" spellcheck="false"><button class="ghost" data-g="save">Guardar</button></div><div class="ghint">Consíguela gratis en aistudio.google.com/apikey</div>`;
+}
+async function saveGem(){
+  const inp=$('#gemKey'), b=$('#tgem [data-g="save"]'); if(!inp||!inp.value.trim())return;
+  b.disabled=true;
+  try{await invoke('set_gemini_key',{key:inp.value});toast('Clave de Gemini conectada');await refreshGem()}
+  catch(e){toast(''+e);b.disabled=false}
+}
+$('#tgem').addEventListener('click',async e=>{
+  const a=e.target.closest('[data-g]')?.dataset.g;
+  if(a==='save')saveGem();
+  if(a==='delete'){await invoke('delete_gemini_key');toast('Clave quitada del equipo');refreshGem()}
+});
+$('#tgem').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='gemKey'){e.preventDefault();saveGem()}});
 
 /* ================= ACTUALIZACIONES ================= */
 /* Revisa GitHub Releases al abrir y cada 6 horas; si hay versión nueva aparece el botón arriba */
@@ -907,7 +996,7 @@ document.addEventListener('contextmenu',e=>{
   let html='';
   if(card&&isSess(byId(card.dataset.id))){
     const it=byId(card.dataset.id); ctxActions={it,el:card};
-    html=mi('view','text','Abrir')+mi('edit','pencil','Renombrar')+(it.status==='grabada'||it.status==='transcrita'?mi('transcribe','spell',it.status==='transcrita'?'Volver a transcribir':'Transcribir'):'')+mi('folder','folder','Abrir la carpeta del audio')+'<hr>'+toneRow(it)+'<hr>'+mi('del','trash','Mover a la papelera',false,'danger')+(compact?'':'<hr>'+sortMenu());
+    html=mi('view','text','Abrir')+mi('edit','pencil','Renombrar')+(it.status==='transcrita'?mi('acta','spell','Acta'):'')+(it.status==='grabada'||it.status==='transcrita'?mi('transcribe','spell',it.status==='transcrita'?'Volver a transcribir':'Transcribir'):'')+mi('folder','folder','Abrir la carpeta del audio')+'<hr>'+toneRow(it)+'<hr>'+mi('del','trash','Mover a la papelera',false,'danger')+(compact?'':'<hr>'+sortMenu());
   }else if(card){
     const it=byId(card.dataset.id); ctxActions={it,el:card};
     html=mi('paste','pasteIn','Pegar en la app anterior')+mi('copy','copy','Copiar')+mi('edit','pencil','Editar')
@@ -946,6 +1035,7 @@ $('#ctx').addEventListener('click',async e=>{
   else if(c==='kill')killItem(it);
   else if(c==='folder')openFolder(it);
   else if(c==='view')openViewer(it.id);
+  else if(c==='acta'){viewing=it.id;vtab='a';openViewer(it.id)}
   else if(c==='transcribe')startTranscribe(it);
   else if(c==='tset')openTset();
 });
@@ -956,7 +1046,7 @@ $('#board').addEventListener('scroll',closeCtx);
 (async()=>{
   try{
     const [rows,st,ss,rs]=await Promise.all([invoke('list_items'),invoke('status'),invoke('list_sessions'),invoke('rec_status')]);
-    items=rows.map(fromDb).concat(ss.map(fromSession)); rec=rs; paintRec(); paused=st.paused; keepOpen=st.keepOpen;
+    items=rows.map(fromDb).concat(ss.map(fromSession)); rec=rs; paintRec(); refreshGem(); paused=st.paused; keepOpen=st.keepOpen;
     let mig=null; try{mig=localStorage.getItem('lienzo-tablero-v2')}catch(e){}
     if(!mig){items.filter(i=>i.x!=null).forEach(i=>patch(i,{x:null,y:null}));try{localStorage.setItem('lienzo-tablero-v2','1')}catch(e){}}
     if(st.hotkeys&&st.hotkeys.length)$('#hint').textContent=`Ábrelo con ${st.hotkeys.join(' o ')} · `+$('#hint').textContent;

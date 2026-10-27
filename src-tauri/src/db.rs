@@ -78,6 +78,16 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
              COMMIT;",
         )?;
     }
+
+    // 5: acta de la reunión o capacitación (JSON generado con Gemini).
+    if v < 5 {
+        conn.execute_batch(
+            "BEGIN;
+             ALTER TABLE sessions ADD COLUMN acta TEXT NOT NULL DEFAULT '';
+             PRAGMA user_version=5;
+             COMMIT;",
+        )?;
+    }
     Ok(())
 }
 

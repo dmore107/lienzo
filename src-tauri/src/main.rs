@@ -2,6 +2,7 @@
 // Todo se guarda localmente en %LOCALAPPDATA%\com.dani.lienzo (nada sale del equipo).
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod acta;
 mod db;
 mod portable;
 mod rec;
@@ -781,6 +782,7 @@ fn main() {
             rec::rec_start,
             rec::rec_stop,
             rec::rec_pause,
+            rec::rec_mute,
             rec::rec_status,
             rec::list_sessions,
             rec::update_session,
@@ -794,6 +796,10 @@ fn main() {
             transcribe::transcribe_session,
             transcribe::cancel_transcription,
             transcribe::get_transcript,
+            acta::gemini_status,
+            acta::set_gemini_key,
+            acta::delete_gemini_key,
+            acta::generate_acta,
             updater::check_update,
             updater::install_update
         ])

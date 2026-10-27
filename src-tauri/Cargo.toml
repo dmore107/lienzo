@@ -1,6 +1,6 @@
 [package]
 name = "lienzo"
-version = "0.5.0"
+version = "0.6.0"
 description = "Portapapeles con lienzo y línea de tiempo"
 edition = "2021"
 
@@ -30,6 +30,8 @@ minisign-verify = "0.3"
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.59", features = [
   "Win32_Foundation",
+  "Win32_Security",
+  "Win32_Security_Credentials",
   "Win32_System_DataExchange",
   "Win32_System_Memory",
   "Win32_System_Registry",
