@@ -32,6 +32,7 @@ const I={
   mic:'<svg viewBox="0 0 24 24"><rect x="9" y="3.5" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v3.5"/></svg>',
   micOff:'<svg viewBox="0 0 24 24"><path d="M15 10V6.5a3 3 0 0 0-5.6-1.5M9 9v2.5a3 3 0 0 0 4.6 2.5M6 11a6 6 0 0 0 9.6 4.8M18 11a6 6 0 0 1-.5 2.4M12 17v3.5M4 4l16 16"/></svg>',
   session:'<svg viewBox="0 0 24 24"><rect x="9" y="3.5" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v3.5"/></svg>',
+  download:'<svg viewBox="0 0 24 24"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5"/><path d="M5 19h14"/></svg>',
   stop:'<svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/></svg>',
   folder:'<svg viewBox="0 0 24 24"><path d="M4 7.5A1.5 1.5 0 0 1 5.5 6H10l2 2h6.5A1.5 1.5 0 0 1 20 9.5v8a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z"/></svg>',
   hand:'<svg viewBox="0 0 24 24"><path d="M8 13V6.5a1.5 1.5 0 0 1 3 0V12M11 11V5a1.5 1.5 0 0 1 3 0v6M14 11V6.5a1.5 1.5 0 0 1 3 0V14a6 6 0 0 1-6 6h-1a5 5 0 0 1-4.3-2.5L4 14.5a1.5 1.5 0 0 1 2.5-1.6L8 15"/></svg>'
@@ -835,12 +836,13 @@ async function openViewer(id){
   moveInd('#vtabs',document.querySelector(`#vtabs button[data-v="${vtab}"]`));
   if(vtab==='a'){
     $('#vredo').hidden=!gemOk||actaBusy===id; $('#vredo').textContent=it.acta?'Volver a generar':'Generar acta';
-    $('#vcopy').disabled=!it.acta; $('#vcopy').title='Copiar el acta';
+    $('#vcopy').disabled=!it.acta; $('#vcopy').title='Copiar el acta'; $('#vexport').disabled=false;
     paintActa(it); return;
   }
   $('#vredo').hidden=!(done||it.status==='grabada');
   $('#vredo').textContent=done?'Volver a transcribir':'Transcribir';
   $('#vcopy').disabled=!it.transcript; $('#vcopy').title='Copiar la transcripción';
+  $('#vexport').disabled=!done;
   await paintViewer(it);
 }
 function closeViewer(){$('#viewer').classList.remove('open');const au=$('#vaudio');au.pause();viewing=null}
@@ -875,6 +877,16 @@ $('#vcopy').onclick=async()=>{
   const it=byId(viewing), a=vtab==='a', text=it&&(a?actaText(it):it.transcript); if(!text)return;
   try{await invoke('copy_text',{text});toast(a?'Acta copiada':'Transcripción copiada')}catch(e){toast(''+e)}
 };
+/* Exportar: acta (si hay) + transcripción, en Documentos\Lienzo */
+$('#vexport').onclick=e=>{
+  const it=byId(viewing); if(!it)return; ctxActions={it,el:null};
+  const r=e.currentTarget.getBoundingClientRect();
+  openCtx(r.left,r.bottom+6,`<div class="lbl">Exportar${it.acta?' acta y transcripción':' transcripción'}</div>`+mi('exp:docx','text','Word (.docx)')+mi('exp:md','pencil','Markdown (.md)'));
+};
+async function exportSess(it,format){
+  try{await invoke('export_session',{id:it.id,format,when:new Date(it.ts).toLocaleDateString('es-CO',{day:'numeric',month:'long',year:'numeric'})+' · '+new Date(it.ts).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})});toast('Guardado en Documentos\\Lienzo')}
+  catch(e){toast(''+e)}
+}
 $('#vfolder').onclick=()=>{const it=byId(viewing);if(it)openFolder(it)};
 $('#vset').onclick=openTset;
 $('#vredo').onclick=()=>{const it=byId(viewing);if(!it)return;if(vtab==='a')genActa(it);else startTranscribe(it)};
@@ -1036,6 +1048,7 @@ $('#ctx').addEventListener('click',async e=>{
   else if(c==='folder')openFolder(it);
   else if(c==='view')openViewer(it.id);
   else if(c==='acta'){viewing=it.id;vtab='a';openViewer(it.id)}
+  else if(c==='exp')exportSess(it,arg);
   else if(c==='transcribe')startTranscribe(it);
   else if(c==='tset')openTset();
 });

@@ -4,6 +4,7 @@
 
 mod acta;
 mod db;
+mod export;
 mod portable;
 mod rec;
 mod transcribe;
@@ -800,6 +801,7 @@ fn main() {
             acta::set_gemini_key,
             acta::delete_gemini_key,
             acta::generate_acta,
+            export::export_session,
             updater::check_update,
             updater::install_update
         ])

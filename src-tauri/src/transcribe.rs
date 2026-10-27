@@ -217,17 +217,17 @@ fn process(app: &AppHandle, id: &str, m: &'static Model) {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Segment {
-    t0: i64,
+    pub(crate) t0: i64,
     t1: i64,
-    who: String,
-    text: String,
+    pub(crate) who: String,
+    pub(crate) text: String,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct Transcript {
     model: String,
     language: String,
-    segments: Vec<Segment>,
+    pub(crate) segments: Vec<Segment>,
 }
 
 fn rms(buf: &[f32], t0_ms: i64, t1_ms: i64) -> f32 {
