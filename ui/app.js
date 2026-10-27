@@ -33,6 +33,7 @@ const I={
   micOff:'<svg viewBox="0 0 24 24"><path d="M15 10V6.5a3 3 0 0 0-5.6-1.5M9 9v2.5a3 3 0 0 0 4.6 2.5M6 11a6 6 0 0 0 9.6 4.8M18 11a6 6 0 0 1-.5 2.4M12 17v3.5M4 4l16 16"/></svg>',
   session:'<svg viewBox="0 0 24 24"><rect x="9" y="3.5" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v3.5"/></svg>',
   download:'<svg viewBox="0 0 24 24"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5"/><path d="M5 19h14"/></svg>',
+  clock:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5"/><path d="M12 8v4.2l2.8 1.8"/></svg>',
   stop:'<svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/></svg>',
   folder:'<svg viewBox="0 0 24 24"><path d="M4 7.5A1.5 1.5 0 0 1 5.5 6H10l2 2h6.5A1.5 1.5 0 0 1 20 9.5v8a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z"/></svg>',
   hand:'<svg viewBox="0 0 24 24"><path d="M8 13V6.5a1.5 1.5 0 0 1 3 0V12M11 11V5a1.5 1.5 0 0 1 3 0v6M14 11V6.5a1.5 1.5 0 0 1 3 0V14a6 6 0 0 1-6 6h-1a5 5 0 0 1-4.3-2.5L4 14.5a1.5 1.5 0 0 1 2.5-1.6L8 15"/></svg>'
@@ -656,6 +657,11 @@ $('#openS').onclick=openSearch;
 
 document.addEventListener('keydown',e=>{
   if(e.target.closest&&e.target.closest('#recPop'))return;
+  if($('#bit').classList.contains('open')&&!$('#tset').classList.contains('open')){
+    if(e.key==='Escape'){if(bitView!=null){bitView=null;paintBit()}else closeBit()}
+    else if(bitView!=null&&(e.key==='ArrowLeft'||e.key==='ArrowRight')){e.preventDefault();stepBit(e.key==='ArrowLeft'?-1:1)}
+    return;
+  }
   if($('#viewer').classList.contains('open')||$('#tset').classList.contains('open')){if(e.key==='Escape'){closeViewer();closeTset()}return}
   const edOpen=$('#editor').classList.contains('open'), sOpen=$('#search').classList.contains('open');
   if(edOpen){
@@ -961,6 +967,107 @@ $('#tgem').addEventListener('click',async e=>{
 });
 $('#tgem').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='gemKey'){e.preventDefault();saveGem()}});
 
+/* ================= BITÁCORA ================= */
+/* Lo que hiciste en las apps elegidas: una captura por clic, con el nombre de lo que tocaste */
+let bitOn=false, bitDay=startOfDay(Date.now()), bitRows=[], bitView=null, bitSet=false, bsetup=null;
+const dayEnd=t=>{const d=new Date(t);return new Date(d.getFullYear(),d.getMonth(),d.getDate()+1).getTime()};
+const hms=t=>new Date(t).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+function paintBitBtn(){document.querySelectorAll('[data-bit]').forEach(b=>{b.classList.toggle('live',bitOn);b.title=bitOn?'Bitácora activa (Alt+Shift+B)':'Bitácora (Alt+Shift+B)'})}
+async function openBit(settings){
+  $('#bit').classList.add('open'); bitView=null;
+  try{bsetup=await invoke('bitacora_setup')}catch(e){bsetup=null}
+  bitOn=!!(bsetup&&bsetup.on); paintBitBtn();
+  bitSet=!!settings||!(bsetup&&bsetup.apps.length);
+  await loadBit();
+}
+function closeBit(){$('#bit').classList.remove('open');bitView=null}
+async function loadBit(){
+  try{bitRows=await invoke('list_bitacora',{from:bitDay,to:dayEnd(bitDay)})}catch(e){bitRows=[]}
+  paintBit();
+}
+function paintBit(){
+  const t=startOfDay(Date.now()), d=new Date(bitDay);
+  $('#bDay').textContent=bitDay===t?'Hoy':bitDay===t-D?'Ayer':cap(d.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long'}));
+  $('#bNext').disabled=bitDay>=t;
+  $('#bToggle').innerHTML=bitOn?I.pause:I.play; $('#bToggle').title=bitOn?'Pausar la bitácora':'Activar la bitácora';
+  $('#bToggle').classList.toggle('on',bitOn); $('#bSet').classList.toggle('on',bitSet);
+  $('#bFoot').hidden=bitSet;
+  $('#bCount').textContent=bitRows.length+(bitRows.length===1?' clic registrado':' clics registrados');
+  $('#bDel').hidden=!bitRows.length;
+  const body=$('#bBody');
+  if(bitSet){paintBitSettings();return}
+  if(bitView!=null&&bitRows[bitView]){paintBitView();return}
+  if(!bitRows.length){
+    body.innerHTML=`<div class="vempty">${bitOn?'Nada registrado este día.<br>Cada clic en las apps elegidas aparecerá aquí.':'La bitácora está en pausa.<br>Actívala con ▶ o con Alt+Shift+B.'}</div>`;return;
+  }
+  /* Grupos: clics seguidos en la misma app y ventana */
+  const groups=[];
+  bitRows.forEach((r,k)=>{const g=groups[groups.length-1];if(g&&g.app===r.app&&g.title===r.title)g.k.push(k);else groups.push({app:r.app,title:r.title,k:[k]})});
+  body.innerHTML=groups.map(g=>`<div class="bgrp"><div class="bgh"><b>${new Date(bitRows[g.k[0]].ts).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})}</b> · ${esc(appName(g.app))}${g.title?' · '+esc(g.title):''}</div><div class="bshots">${g.k.map(k=>{
+    const r=bitRows[k];
+    return `<button class="bshot" data-k="${k}"><div class="bimg">${r.image?`<img src="${fileSrc(r.image)}" alt="" loading="lazy" draggable="false">`:''}${r.x!=null?`<span class="bdot" style="left:${r.x*100}%;top:${r.y*100}%"></span>`:''}</div><div class="bmeta"><span>${hms(r.ts)}</span><small>${esc(r.target||'Clic')}</small></div></button>`;
+  }).join('')}</div></div>`).join('');
+}
+function paintBitView(){
+  const r=bitRows[bitView];
+  $('#bBody').innerHTML=`<div class="bview"><div class="bnav"><button class="ib sm" data-b="back" title="Volver (Esc)">${I.left}</button><div class="binfo"><b>${hms(r.ts)}</b> · ${esc(appName(r.app))}${r.title?' · '+esc(r.title):''}${r.target?' · clic en “'+esc(r.target)+'”':''}</div><span style="font-size:11.5px;color:var(--ink3)">${bitView+1} / ${bitRows.length}</span><button class="ib sm" data-b="prev" title="Anterior (←)"${bitView?'':' disabled'}>${I.left}</button><button class="ib sm" data-b="next" title="Siguiente (→)"${bitView<bitRows.length-1?'':' disabled'}>${I.right}</button></div>
+    <div class="bbig">${r.image?`<img src="${fileSrc(r.image)}" alt="">`:'<div class="vempty">Sin captura</div>'}${r.x!=null&&r.image?`<span class="bdot" style="left:${r.x*100}%;top:${r.y*100}%"></span>`:''}</div>
+    ${r.ocr?`<details><summary>Texto de la pantalla</summary><pre>${esc(r.ocr)}</pre></details>`:''}</div>`;
+}
+function stepBit(d){const n=bitView+d;if(n>=0&&n<bitRows.length){bitView=n;paintBitView()}}
+function paintBitSettings(){
+  if(!bsetup)bsetup={apps:[],running:[],title:'',days:15,ocr:true};
+  const su=bsetup;
+  const all=[...new Set([...su.apps,...su.running.map(a=>a.exe.toLowerCase())])].sort((a,b)=>appName(a).localeCompare(appName(b),'es'));
+  bsetup.sel=bsetup.sel||new Set(su.apps);
+  $('#bBody').innerHTML=`<div class="tbody">
+    <div class="tlbl">Apps que se registran</div>
+    <div class="bchips">${all.length?all.map(a=>`<button class="bchip${bsetup.sel.has(a)?' on':''}" data-app="${esc(a)}">${esc(appName(a))}</button>`).join(''):'<small class="tnote">Abre las apps que quieras registrar y vuelve aquí.</small>'}</div>
+    <small class="tnote" style="margin-top:0">Aparecen las apps abiertas ahora. Solo se registran los clics dentro de las que elijas.</small>
+    <div class="tlbl">Solo ventanas cuyo título contenga (opcional)</div>
+    <input class="bin" id="bTitle" placeholder="Ej.: Portal de facturación" autocomplete="off" spellcheck="false" value="${esc(su.title)}">
+    <div class="tlbl">Guardar por</div>
+    <div class="seg" id="bDays"><span class="ind"></span>${[7,15,30].map(n=>`<button data-v="${n}" class="${su.days===n?'on':''}">${n} días</button>`).join('')}</div>
+    <small class="tnote">Todo queda en este equipo. No se registra lo que escribes ni los campos de contraseña, y nunca se capturan los gestores de contraseñas.${su.ocr?'':' <b>El OCR de Windows no está disponible:</b> agrega el idioma español en Configuración → Hora e idioma → Idioma para leer el texto de las capturas.'}</small>
+    <div class="bsave"><button class="sbtn solid" id="bSave">${bitOn?'Guardar':'Guardar y activar'}</button></div>
+  </div>`;
+  moveInd('#bDays',document.querySelector('#bDays button.on'));
+}
+async function saveBit(){
+  const days=+(document.querySelector('#bDays button.on')?.dataset.v||15), apps=[...bsetup.sel];
+  if(!apps.length){toast('Elige al menos una app');return}
+  try{await invoke('set_bitacora',{on:true,apps,title:$('#bTitle').value,days});bsetup.apps=apps;bsetup.days=days;bsetup.title=$('#bTitle').value;bitSet=false;toast('Bitácora activa: registra tus clics en '+apps.map(appName).join(', '));loadBit()}
+  catch(e){toast(''+e)}
+}
+$('#bBody').addEventListener('click',e=>{
+  const chip=e.target.closest('.bchip'); if(chip){const a=chip.dataset.app;bsetup.sel.has(a)?bsetup.sel.delete(a):bsetup.sel.add(a);chip.classList.toggle('on');return}
+  const day=e.target.closest('#bDays button'); if(day){document.querySelectorAll('#bDays button').forEach(b=>b.classList.toggle('on',b===day));moveInd('#bDays',day);return}
+  if(e.target.closest('#bSave')){saveBit();return}
+  const shot=e.target.closest('.bshot'); if(shot){bitView=+shot.dataset.k;paintBit();return}
+  const b=e.target.closest('[data-b]')?.dataset.b;
+  if(b==='back'){bitView=null;paintBit()} else if(b==='prev')stepBit(-1); else if(b==='next')stepBit(1);
+});
+$('#bPrev').onclick=()=>{bitDay=startOfDay(bitDay-D/2);bitView=null;loadBit()};
+$('#bNext').onclick=()=>{bitDay=dayEnd(bitDay);bitView=null;loadBit()};
+$('#bSet').onclick=()=>{bitSet=!bitSet;if(bsetup)bsetup.sel=null;paintBit()};
+$('#bClose').onclick=closeBit;
+$('#bit').addEventListener('click',e=>{if(e.target.id==='bit')closeBit()});
+$('#bToggle').onclick=async()=>{
+  if(!bsetup||!bsetup.apps.length){bitSet=true;paintBit();return}
+  try{await invoke('set_bitacora',{on:!bitOn,apps:bsetup.apps,title:bsetup.title,days:bsetup.days})}catch(e){toast(''+e)}
+};
+$('#bDel').onclick=()=>{
+  const n=bitRows.length, day=$('#bDay').textContent.toLowerCase();
+  toast(`¿Borrar los ${n} clics de ${day}?`,'Borrar',async()=>{try{await invoke('delete_bitacora',{from:bitDay,to:dayEnd(bitDay)});toast('Día borrado');loadBit()}catch(e){toast(''+e)}});
+};
+document.addEventListener('click',e=>{if(e.target.closest('[data-bit]'))openBit()});
+listen('bitacora-state',ev=>{bitOn=!!ev.payload;if(bsetup)bsetup.on=bitOn;paintBitBtn();if($('#bit').classList.contains('open'))paintBit();toast(bitOn?'Bitácora activa':'Bitácora en pausa')});
+listen('bitacora-setup',()=>openBit(true));
+listen('bitacora-added',ev=>{
+  const r=ev.payload; if(!$('#bit').classList.contains('open')||bitSet||r.ts<bitDay||r.ts>=dayEnd(bitDay))return;
+  bitRows.push(r); if(bitView==null)paintBit(); else $('#bCount').textContent=bitRows.length+' clics registrados';
+});
+
 /* ================= ACTUALIZACIONES ================= */
 /* Revisa GitHub Releases al abrir y cada 6 horas; si hay versión nueva aparece el botón arriba */
 let installing=false;
@@ -1059,7 +1166,8 @@ $('#board').addEventListener('scroll',closeCtx);
 (async()=>{
   try{
     const [rows,st,ss,rs]=await Promise.all([invoke('list_items'),invoke('status'),invoke('list_sessions'),invoke('rec_status')]);
-    items=rows.map(fromDb).concat(ss.map(fromSession)); rec=rs; paintRec(); refreshGem(); paused=st.paused; keepOpen=st.keepOpen;
+    items=rows.map(fromDb).concat(ss.map(fromSession)); rec=rs; paintRec(); refreshGem();
+    invoke('bitacora_setup').then(s=>{bitOn=s.on;bsetup=s;paintBitBtn()}).catch(()=>{}); paused=st.paused; keepOpen=st.keepOpen;
     let mig=null; try{mig=localStorage.getItem('lienzo-tablero-v2')}catch(e){}
     if(!mig){items.filter(i=>i.x!=null).forEach(i=>patch(i,{x:null,y:null}));try{localStorage.setItem('lienzo-tablero-v2','1')}catch(e){}}
     if(st.hotkeys&&st.hotkeys.length)$('#hint').textContent=`Ábrelo con ${st.hotkeys.join(' o ')} · `+$('#hint').textContent;

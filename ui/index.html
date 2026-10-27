@@ -35,6 +35,7 @@
       <button class="sbtn" id="openS"><span data-i="search"></span>Buscar<kbd>Ctrl K</kbd></button>
       <div class="win">
         <button class="ib" data-rec title="Grabar reunión o capacitación (Alt+Shift+R)"><span data-i="mic"></span></button>
+        <button class="ib" data-bit title="Bitácora (Alt+Shift+B)"><span data-i="clock"></span></button>
         <button class="ib" data-op title="Opacidad"><span data-i="drop"></span></button>
         <button class="ib" id="bCompact" title="Vista compacta"><span data-i="shrink"></span></button>
         <button class="ib" id="bPause" title="Pausar la captura del portapapeles"><span data-i="pause"></span></button>
@@ -50,6 +51,7 @@
       <div class="sp" data-tauri-drag-region></div>
       <button class="ib sm" id="cNew" title="Nueva nota"><span data-i="plus"></span></button>
       <button class="ib sm" data-rec title="Grabar (Alt+Shift+R)"><span data-i="mic"></span></button>
+      <button class="ib sm" data-bit title="Bitácora (Alt+Shift+B)"><span data-i="clock"></span></button>
       <button class="ib sm" id="cPins" title="Fijados"><span data-i="pin"></span></button>
       <button class="ib sm" id="cSearch" title="Buscar (Ctrl+K)"><span data-i="search"></span></button>
       <button class="ib sm" data-op title="Opacidad"><span data-i="drop"></span></button>
@@ -147,6 +149,20 @@
       <div id="tgem"></div>
       <small class="tnote">La transcripción se hace en este equipo y el audio nunca sale de él. El acta envía solo el texto a Google Gemini, y solo cuando la pides: con la clave gratuita Google puede usarlo para mejorar sus productos, así que evítalo en reuniones confidenciales.</small>
     </div>
+  </div>
+</div>
+
+<!-- Bitácora: lo que hiciste en las apps elegidas -->
+<div class="overlay" id="bit">
+  <div class="sheet wide">
+    <div class="ehead"><span data-i="clock"></span><b>Bitácora</b>
+      <button class="ib sm" id="bPrev" title="Día anterior"><span data-i="left"></span></button><span id="bDay"></span><button class="ib sm" id="bNext" title="Día siguiente"><span data-i="right"></span></button>
+      <span class="sp"></span>
+      <button class="ib" id="bToggle"></button>
+      <button class="ib" id="bSet" title="Ajustes de la bitácora"><span data-i="sliders"></span></button>
+      <button class="ib" id="bClose" title="Cerrar (Esc)"><span data-i="x"></span></button></div>
+    <div class="vbody" id="bBody"></div>
+    <div class="efoot" id="bFoot"><small id="bCount"></small><span class="sp"></span><button class="ghost" id="bDel">Borrar este día</button></div>
   </div>
 </div>
 

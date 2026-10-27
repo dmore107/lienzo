@@ -434,3 +434,38 @@ body.compact .meters i,body.compact .meters .mt:not(.mbtn){display:none}
 .gkey input:focus{border-color:var(--ink3)}
 .gkey .ghost{padding:7px 12px}
 .ghint{font-size:11.5px;color:var(--ink3);margin-top:6px;user-select:text}
+
+/* ================= BITÁCORA ================= */
+[data-bit].live{position:relative}
+[data-bit].live::after{content:"";position:absolute;top:6px;right:6px;width:6px;height:6px;border-radius:50%;background:rgb(var(--rec))}
+#bit .ehead #bDay{font-size:12.5px;color:var(--ink2);min-width:150px;text-align:center}
+#bit .vbody{max-height:64vh}
+.bgrp{padding:6px 8px 10px}
+.bgh{font-size:12px;color:var(--ink3);padding:4px 4px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bgh b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+.bshots{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.bshot{border:1px solid var(--line);background:var(--card);border-radius:11px;padding:0;overflow:hidden;cursor:pointer;text-align:left;color:var(--ink);font:inherit;transition:border-color .2s,transform .3s var(--spring)}
+.bshot:hover{border-color:var(--line2);transform:translateY(-1px)}
+.bshot .bimg{position:relative;aspect-ratio:16/10;background:var(--chip);overflow:hidden}
+.bshot img{width:100%;height:100%;object-fit:cover;object-position:top left;display:block}
+.bshot .bmeta{padding:5px 8px 7px}
+.bshot .bmeta span{display:block;font-size:11px;color:var(--ink3);font-variant-numeric:tabular-nums}
+.bshot .bmeta small{display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bdot{position:absolute;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;border:2px solid #fff;background:rgb(var(--rec));box-shadow:0 0 0 3px rgba(var(--rec),.35),0 1px 4px rgba(0,0,0,.4);pointer-events:none}
+.bshot .bdot{width:9px;height:9px;margin:-4.5px 0 0 -4.5px;border-width:1.5px;box-shadow:0 0 0 2px rgba(var(--rec),.3)}
+.bview{padding:4px 14px 10px}
+.bview .bnav{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.bview .bnav .binfo{flex:1;min-width:0;font-size:12.5px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bview .bnav .binfo b{color:var(--ink);font-variant-numeric:tabular-nums}
+.bview .bbig{position:relative;border-radius:10px;overflow:hidden;border:1px solid var(--line)}
+.bview .bbig img{display:block;width:100%}
+.bview details{margin-top:10px;font-size:12.5px;color:var(--ink2)}
+.bview summary{cursor:pointer;color:var(--ink3)}
+.bview pre{white-space:pre-wrap;font:inherit;font-size:12.5px;line-height:1.5;margin-top:6px;max-height:200px;overflow:auto;user-select:text}
+.bchips{display:flex;flex-wrap:wrap;gap:6px}
+.bchip{border:1px solid var(--line2);background:none;border-radius:999px;padding:5px 11px;font:inherit;font-size:12.5px;color:var(--ink2);cursor:pointer;transition:background .2s,color .2s}
+.bchip:hover{background:var(--hover)}
+.bchip.on{background:var(--selbg);color:var(--selfg);border-color:var(--selbg)}
+#bit .tbody input.bin{border:1px solid var(--line);background:var(--field);border-radius:11px;padding:7px 10px;font:inherit;font-size:13px;color:var(--ink);outline:0;user-select:text}
+#bit .tbody input.bin:focus{border-color:var(--ink3)}
+.bsave{display:flex;justify-content:flex-end;margin-top:6px}

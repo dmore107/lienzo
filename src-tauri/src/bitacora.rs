@@ -697,7 +697,7 @@ mod sys {
             writer.WriteBytes(bgra)?;
             let buf = writer.DetachBuffer()?;
             let bmp = SoftwareBitmap::CreateCopyFromBuffer(&buf, BitmapPixelFormat::Bgra8, w as i32, h as i32)?;
-            let res = self.0.RecognizeAsync(&bmp)?.get()?;
+            let res = self.0.RecognizeAsync(&bmp)?.join()?;
             let mut out = Vec::new();
             for line in res.Lines()? {
                 let mut words = Vec::new();
