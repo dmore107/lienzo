@@ -3,6 +3,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod acta;
+mod bitacora;
 mod db;
 mod export;
 mod portable;
@@ -72,6 +73,7 @@ struct AppState {
 struct PauseItem(CheckMenuItem<Wry>);
 struct AutostartItem(CheckMenuItem<Wry>);
 struct RecItem(MenuItem<Wry>);
+struct BitItem(CheckMenuItem<Wry>);
 
 fn now_ms() -> i64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as i64).unwrap_or(0)
@@ -614,6 +616,8 @@ fn main() {
                     if ev.state() == ShortcutState::Pressed {
                         if *sc == rec::shortcut() {
                             rec::toggle(app);
+                        } else if *sc == bitacora::shortcut() {
+                            bitacora::toggle(app);
                         } else {
                             toggle_window(app);
                         }
@@ -663,6 +667,7 @@ fn main() {
             });
             app.manage(rec::Recorder::default());
             app.manage(transcribe::Transcriber::default());
+            app.manage(bitacora::Bitacora::default());
             purge_old_trash(&app.state::<AppState>());
             rec::recover(&app.state::<AppState>());
             transcribe::recover(&app.state::<AppState>());
@@ -679,12 +684,14 @@ fn main() {
             }
             *app.state::<AppState>().hotkeys.lock().unwrap() = ok.clone();
             let _ = app.global_shortcut().register(rec::shortcut());
+            let _ = app.global_shortcut().register(bitacora::shortcut());
 
             // Bandeja del sistema
             let version = app.package_info().version.to_string();
             let label = format!("Abrir  ({})", ok.first().cloned().unwrap_or_else(|| "sin atajo".into()));
             let open = MenuItem::with_id(app, "open", label, true, None::<&str>)?;
             let record = MenuItem::with_id(app, "record", "Grabar reunión  (Alt+Shift+R)", true, None::<&str>)?;
+            let bit = CheckMenuItem::with_id(app, "bitacora", "Bitácora  (Alt+Shift+B)", true, false, None::<&str>)?;
             let pause = CheckMenuItem::with_id(app, "pause", "Pausar captura", true, false, None::<&str>)?;
             let auto_on = app.autolaunch().is_enabled().unwrap_or(false);
             let auto = CheckMenuItem::with_id(app, "autostart", "Iniciar con Windows", true, auto_on, None::<&str>)?;
@@ -692,7 +699,7 @@ fn main() {
             let sep = PredefinedMenuItem::separator(app)?;
             let quit = MenuItem::with_id(app, "quit", "Salir", true, None::<&str>)?;
             // La portable no toca el registro: sin "Iniciar con Windows"
-            let mut entries: Vec<&dyn tauri::menu::IsMenuItem<Wry>> = vec![&open, &record, &pause];
+            let mut entries: Vec<&dyn tauri::menu::IsMenuItem<Wry>> = vec![&open, &record, &bit, &pause];
             if portable_dir.is_none() {
                 entries.push(&auto);
             }
@@ -701,6 +708,7 @@ fn main() {
             app.manage(PauseItem(pause.clone()));
             app.manage(AutostartItem(auto.clone()));
             app.manage(RecItem(record.clone()));
+            app.manage(BitItem(bit.clone()));
             TrayIconBuilder::with_id("tray")
                 .icon(app.default_window_icon().unwrap().clone())
                 .tooltip(format!("Lienzo {version} — portapapeles"))
@@ -713,6 +721,7 @@ fn main() {
                         set_paused_inner(app, v);
                     }
                     "record" => rec::toggle(app),
+                    "bitacora" => bitacora::toggle(app),
                     "autostart" => toggle_autostart(app),
                     "update" => {
                         show_window(app);
@@ -749,6 +758,7 @@ fn main() {
             start_watcher(app.handle().clone());
             backfill_thumbs(app.handle().clone());
             transcribe::start_worker(app.handle().clone());
+            bitacora::init(app.handle());
             Ok(())
         })
         .on_window_event(|window, event| match event {
@@ -802,6 +812,10 @@ fn main() {
             acta::delete_gemini_key,
             acta::generate_acta,
             export::export_session,
+            bitacora::bitacora_setup,
+            bitacora::set_bitacora,
+            bitacora::list_bitacora,
+            bitacora::delete_bitacora,
             updater::check_update,
             updater::install_update
         ])

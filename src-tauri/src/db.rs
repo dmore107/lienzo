@@ -88,6 +88,20 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
              COMMIT;",
         )?;
     }
+
+    // 6: bitácora personal (clics con captura y texto; las imágenes viven en bitacora/).
+    if v < 6 {
+        conn.execute_batch(
+            "BEGIN;
+             CREATE TABLE IF NOT EXISTS bitacora(
+               id TEXT PRIMARY KEY, ts INTEGER NOT NULL, app TEXT NOT NULL, title TEXT NOT NULL DEFAULT '',
+               target TEXT NOT NULL DEFAULT '', image TEXT NOT NULL DEFAULT '', x REAL, y REAL,
+               ocr TEXT NOT NULL DEFAULT '');
+             CREATE INDEX IF NOT EXISTS idx_bitacora_ts ON bitacora(ts);
+             PRAGMA user_version=6;
+             COMMIT;",
+        )?;
+    }
     Ok(())
 }
 
