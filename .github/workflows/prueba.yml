@@ -1,0 +1,46 @@
+name: Versión de prueba
+
+# En ramas de trabajo (p. ej. v0.6-acta) arma Lienzo.exe sin publicar nada,
+# para probarlo antes de sacar la versión. Se descarga desde la pestaña Actions.
+on:
+  push:
+    branches: ['v*-*']
+
+jobs:
+  exe:
+    runs-on: windows-latest
+    env:
+      GGML_NATIVE: "OFF"
+      GGML_AVX: "ON"
+      GGML_AVX2: "ON"
+      GGML_FMA: "ON"
+      GGML_F16C: "ON"
+      # bindgen genera los bindings de whisper.cpp para Windows con el LLVM del runner
+      LIBCLANG_PATH: "C:/Program Files/LLVM/bin"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+      - uses: swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - run: npx tauri build --no-bundle
+
+      # Con la carpeta "datos" junto al exe corre en modo portable: no toca tus datos reales
+      - name: Carpeta de prueba
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force out/Lienzo-prueba/datos | Out-Null
+          Copy-Item src-tauri/target/release/lienzo.exe out/Lienzo-prueba/Lienzo.exe
+          Set-Content out/Lienzo-prueba/datos/LEEME.txt -Encoding utf8 -Value 'Datos de la version de prueba. Puedes borrar toda la carpeta al terminar.'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Lienzo-prueba
+          path: out/Lienzo-prueba
+          retention-days: 7
