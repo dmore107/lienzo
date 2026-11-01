@@ -24,7 +24,7 @@ cpal = "0.15"
 hound = "3.5"
 whisper-rs = "0.16"
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "http2"] }
-sha2 = "0.10"
+sha2 = "0.11"
 minisign-verify = "0.3"
 docx-rs = "0.4"
 
